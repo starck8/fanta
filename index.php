@@ -3,10 +3,42 @@
 // FANTASTRATEGY EXCEL SUPREME EDITION ⚡ - AUCTION LIVE ENGINE 2026/2027
 // ==============================================================================
 
-$dataFile = 'fantacalcio_supreme_db.json';
+// Gestione percorso dinamico: rileva se siamo su Windows (XAMPP) o Linux (Render)
+if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
+    // Percorso per XAMPP su Windows
+    $tmpDir = sys_get_temp_dir();
+    $dataFile = $tmpDir . DIRECTORY_SEPARATOR . 'fantacalcio_supreme_db.json';
+} else {
+    // Percorso per Render / Linux
+    $dataFile = '/tmp/fantacalcio_supreme_db.json';
+}
 
+$defaultFile = __DIR__ . '/fantacalcio_supreme_db.json';
+
+// Se il file temporaneo non esiste ancora, prova a copiarlo o a crearlo
 if (!file_exists($dataFile)) {
-    $initialData = [
+    if (file_exists($defaultFile)) {
+        copy($defaultFile, $dataFile);
+    } else {
+        $initialData = [
+            'lega1' => [
+                'nome' => 'Lega 1', 
+                'budget_iniziale' => 500, 
+                'budget_ruoli' => ['P' => 40, 'D' => 80, 'C' => 150, 'A' => 230],
+                'giocatori' => [], 
+                'coppie' => []
+            ]
+        ];
+        file_put_contents($dataFile, json_encode($initialData, JSON_PRETTY_PRINT));
+    }
+}
+
+// Lettura e verifica dati
+$fileContent = file_exists($dataFile) ? file_get_contents($dataFile) : '';
+$data = json_decode($fileContent, true);
+
+if (!is_array($data)) {
+    $data = [
         'lega1' => [
             'nome' => 'Lega 1', 
             'budget_iniziale' => 500, 
@@ -15,10 +47,8 @@ if (!file_exists($dataFile)) {
             'coppie' => []
         ]
     ];
-    file_put_contents($dataFile, json_encode($initialData, JSON_PRETTY_PRINT));
 }
 
-$data = json_decode(file_get_contents($dataFile), true);
 $currentLega = $_GET['lega'] ?? 'lega1';
 if (!array_key_exists($currentLega, $data)) { $currentLega = 'lega1'; }
 
