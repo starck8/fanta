@@ -1,6 +1,6 @@
 <?php
 // ==============================================================================
-// FANTASTRATEGY EXCEL SUPREME EDITION ⚡ - AUTOMATED FANTALAB CALENDAR 2026/2027
+// FANTASTRATEGY EXCEL SUPREME EDITION ⚡ - AUCTION LIVE ENGINE 2026/2027
 // ==============================================================================
 
 $dataFile = 'fantacalcio_supreme_db.json';
@@ -41,21 +41,241 @@ function excelColumnToIndex($colRef) {
 }
 
 // ==============================================================================
-// 1. CLASSIFICAZIONE DIFFICOLTÀ SQUADRE (1: Facile, 2: Media, 3: Difficile)
+// DATABASE TATTICO COMPLETO DELLE 20 SQUADRE
+// ==============================================================================
+$tatticheSquadre = [
+    'ATA' => [
+        'allenatore' => 'M. Sarri',
+        'rigoristi' => ['Scamacca', 'Samardzic', 'Ederson D.S.'],
+        'punizioni' => ['Samardzic', 'Gaetano'],
+        'angoli' => ['Samardzic', 'Gaetano', 'Bernasconi'],
+        'ballottaggi' => ['Scamacca (51%) vs Krstovic (49%)', 'Gaetano (51%) vs De Roon (49%)', 'Zappacosta (55%) vs Bellanova (45%)', 'Kolasinac (55%) vs Hien (45%)', 'Samardzic (51%) vs Pasalic (49%)', 'Bernasconi (51%) vs Ahanor (49%)'],
+        'valorizzati' => ['Scalvini' => 'Difesa di Sarri solida', 'Raspadori' => 'Adattabile anche al centro, esterni prolifici'],
+        'penalizzati' => ['De Roon' => 'Posizionamento più arretrato', 'Kossounou' => 'Parte indietro nelle gerarchie'],
+        'nascosti' => ['Samardzic'],
+        'giovani' => ['Bernasconi']
+    ],
+    'BOL' => [
+        'allenatore' => 'D. Tedesco',
+        'rigoristi' => ['Orsolini', 'Dovbyk', 'Bernardeschi'],
+        'punizioni' => ['Orsolini', 'Bernardeschi'],
+        'angoli' => ['Orsolini', 'Bernardeschi', 'Miranda J.'],
+        'ballottaggi' => ['Vitik (51%) vs Heggem (49%)', 'Zortea (51%) vs Holm (49%)', 'Bernardeschi (60%) vs Odgaard (40%)', 'Pobega (55%) vs Moro N. (45%)'],
+        'valorizzati' => ['Rowe' => 'Caratteristiche in linea con gli esterni', 'Orsolini' => 'Perno offensivo e perno bonus'],
+        'penalizzati' => ['Dallinga' => 'Indietro nelle gerarchie', 'Lucumì' => 'Soffre sistema di gioco elaborato'],
+        'nascosti' => ['Bernardeschi'],
+        'giovani' => ['Dominguez B.']
+    ],
+    'CAG' => [
+        'allenatore' => 'F. Pisacane',
+        'rigoristi' => ['Fazzini', 'Mina', 'Borrelli'],
+        'punizioni' => ['Fazzini', 'Maldini'],
+        'angoli' => ['Fazzini', 'Obert', 'Maldini'],
+        'ballottaggi' => ['Mina (51%) vs Deiola (49%)', 'Zè Pedro (55%) vs Zappa (45%)', 'Borrelli (55%) vs Mendy P. (45%)'],
+        'valorizzati' => ['Obert' => 'Buoni cross dai piazzati', 'Fazzini' => 'Voluto dal mister, propensione al bonus'],
+        'penalizzati' => ['Zappa' => 'Sistema troppo difensivo'],
+        'nascosti' => ['Romano'],
+        'giovani' => ['Mendy P.']
+    ],
+    'COM' => [
+        'allenatore' => 'C. Fabregas',
+        'rigoristi' => ['Da Cunha', 'Douvikas', 'Baturina'],
+        'punizioni' => ['Paz N.', 'Baturina'],
+        'angoli' => ['Paz N.', 'Baturina', 'Da Cunha'],
+        'ballottaggi' => ['Perrone (60%) vs Milla (40%)', 'Diao (60%) vs Rodriguez Je. (40%)', 'Couto (51%) vs Smolcic I. (49%)', 'Valle (51%) vs Kaiki (49%)', 'Ramon (55%) vs Kempf (45%)'],
+        'valorizzati' => ['Da Cunha' => 'Duttile tatticamente', 'Douvikas' => 'Manovra offensiva crea spazi'],
+        'penalizzati' => ['Morata' => 'Non ancora integrato', 'Valle' => 'Molto turnover nel suo ruolo'],
+        'nascosti' => ['Diao'],
+        'giovani' => ['Liberali']
+    ],
+    'FIO' => [
+        'allenatore' => 'F. Grosso',
+        'rigoristi' => ['Kean', 'Gudmundsson A.', 'Mastantuono'],
+        'punizioni' => ['Mastantuono', 'Fagioli'],
+        'angoli' => ['Fagioli', 'Mastantuono', 'Mandragora'],
+        'ballottaggi' => ['Jimenez A. (51%) vs Joao Mario (49%)', 'Viery (51%) vs Ranieri L. (49%)', 'Ndour (51%) vs Gudmundsson A. (49%)'],
+        'valorizzati' => ['Jimenez A.' => 'Usato sia come terzino che ala', 'Atta' => 'Mezz\'ali di Grosso molto prolifiche'],
+        'penalizzati' => ['Brescianini' => 'Indietro nelle gerarchie', 'Ranieri L.' => 'Titolarità non garantita'],
+        'nascosti' => ['Ndour'],
+        'giovani' => ['Oulai']
+    ],
+    'FRO' => [
+        'allenatore' => 'M. Alvini',
+        'rigoristi' => ['Calò', 'Ghedjemis', 'Kvernadze'],
+        'punizioni' => ['Calò', 'Ghedjemis'],
+        'angoli' => ['Calò', 'Kvernadze', 'Ghedjemis'],
+        'ballottaggi' => ['El Azzouzi (51%) vs Gelli (49%)', 'Palmisani (51%) vs Desplanches (49%)', 'Zerbin (51%) vs Kvernadze (49%)', 'Koutsoupias (51%) vs Hasa (49%)'],
+        'valorizzati' => ['Ghedjemis' => 'Uomo chiave nel gioco', 'Calò' => 'Calcia tutti i piazzati e rigorista'],
+        'penalizzati' => ['Monterisi' => 'Propensione al malus'],
+        'nascosti' => ['Zerbin'],
+        'giovani' => ['Fini']
+    ],
+    'GEN' => [
+        'allenatore' => 'D. De Rossi',
+        'rigoristi' => ['Colombo', 'Ostigard', 'Vitinha O.'],
+        'punizioni' => ['Baldanzi', 'Messias'],
+        'angoli' => ['Baldanzi', 'Messias', 'Frendrup'],
+        'ballottaggi' => ['Vitinha O. (51%) vs Meichtry (49%)', 'Baldanzi (51%) vs Traorè Hj. (49%)', 'Mitaj (51%) vs Ellertsson (49%)'],
+        'valorizzati' => ['Ostigard' => 'Prolifico sui piazzati', 'Baldanzi' => 'Fantasista e fulcro di gioco'],
+        'penalizzati' => ['Martin' => 'Titolarità non garantita'],
+        'nascosti' => ['Marcandalli'],
+        'giovani' => ['Puczka']
+    ],
+    'INT' => [
+        'allenatore' => 'C. Chivu',
+        'rigoristi' => ['Calhanoglu', 'Zielinski', 'Martinez L.'],
+        'punizioni' => ['Dimarco', 'Calhanoglu'],
+        'angoli' => ['Calhanoglu', 'Dimarco', 'Zielinski'],
+        'ballottaggi' => ['Zielinski (55%) vs Sucic P. (45%)', 'Diouf (51%) vs Luis Henrique (49%)', 'Martinez Jo. (55%) vs Provedel (45%)', 'Stones (55%) vs Bisseck (45%)'],
+        'valorizzati' => ['Martinez L.' => 'Fulcro del gioco', 'Dimarco' => 'Ruolo molto offensivo con Chivu'],
+        'penalizzati' => ['Frattesi' => 'Non integrato nel gioco', 'Luis Henrique' => 'Indietro nelle gerarchie'],
+        'nascosti' => ['Diouf'],
+        'giovani' => ['Esposito F.P.']
+    ],
+    'JUV' => [
+        'allenatore' => 'L. Spalletti',
+        'rigoristi' => ['Kolo Muani', 'Locatelli', 'Yildiz'],
+        'punizioni' => ['Yildiz', 'Cambiaso'],
+        'angoli' => ['Yildiz', 'Cambiaso', 'Locatelli'],
+        'ballottaggi' => ['Alajbegovic (51%) vs Conceicao (49%)'],
+        'valorizzati' => ['Yildiz' => 'Riferimento principale offensivo', 'McKennie' => 'Prolifico negli inserimenti'],
+        'penalizzati' => ['Koopmeiners' => 'Posizionamento molto arretrato', 'Zhegrova' => 'Minutaggio ridotto'],
+        'nascosti' => ['Kelly L.'],
+        'giovani' => ['Ekhator']
+    ],
+    'LAZ' => [
+        'allenatore' => 'G. Gattuso',
+        'rigoristi' => ['Zaccagni', 'Taylor K.', 'Cataldi'],
+        'punizioni' => ['Zaccagni', 'Cataldi'],
+        'angoli' => ['Zaccagni', 'Taylor K.', 'Rovella'],
+        'ballottaggi' => ['Rovella (55%) vs Cataldi (45%)', 'Isaksen (60%) vs Cancellieri (40%)', 'Pedraza (51%) vs Tavares N. (49%)', 'Romagnoli (60%) vs Provstgaard (40%)'],
+        'valorizzati' => ['Taylor K.' => 'Inserimenti richiesti dal mister', 'Zaccagni' => 'Fantasista e fulcro del gioco'],
+        'penalizzati' => ['Rovella' => 'Propensione ai cartellini nel gioco di Gattuso'],
+        'nascosti' => ['Pedraza'],
+        'giovani' => ['Provstgaard']
+    ],
+    'LEC' => [
+        'allenatore' => 'E. Di Francesco',
+        'rigoristi' => ['Geubbels', 'Stulic', 'Pierotti'],
+        'punizioni' => ['Gallo', 'Pierotti'],
+        'angoli' => ['Gallo', 'Pierotti', 'Berisha M.'],
+        'ballottaggi' => ['Berisha M. (51%) vs Ngom (49%)', 'Geubbels (51%) vs Stulic (49%)'],
+        'valorizzati' => ['N\'Dri' => 'Ali fondamentali per Di Francesco', 'Coulibaly L.' => 'Fulcro del centrocampo'],
+        'penalizzati' => ['Fofana Sa.' => 'Titolarità non garantita'],
+        'nascosti' => ['Gandelman'],
+        'giovani' => ['Tiago Gabriel']
+    ],
+    'MIL' => [
+        'allenatore' => 'R. Amorim',
+        'rigoristi' => ['Ramos G.', 'Nkunku', 'Pulisic'],
+        'punizioni' => ['Modric', 'Pulisic'],
+        'angoli' => ['Modric', 'Pulisic', 'Bartesaghi'],
+        'ballottaggi' => ['Leao (55%) vs Nkunku (45%)'],
+        'valorizzati' => ['Pulisic' => 'Fantasista adattabile ovunque', 'Ramos G.' => 'Fulcro del gioco di Amorim'],
+        'penalizzati' => ['Tomori' => 'Non adatto all\'impostazione richiesta', 'Ricci S.' => 'Troppo campo da coprire'],
+        'nascosti' => ['Nkunku'],
+        'giovani' => ['Bartesaghi']
+    ],
+    'MON' => [
+        'allenatore' => 'I. Jurić',
+        'rigoristi' => ['Pessina', 'Cutrone', 'Petagna'],
+        'punizioni' => ['Colpani', 'Pessina'],
+        'angoli' => ['Pessina', 'Colpani', 'Ciurria'],
+        'ballottaggi' => ['Cutrone (51%) vs Petagna (49%)', 'Colpani (55%) vs Ciurria (45%)', 'Mota (55%) vs Ciurria (45%)', 'Akinsanmiro (51%) vs Colombo L. (49%)'],
+        'valorizzati' => ['Mota' => 'Leader d\'attacco', 'Birindelli' => 'Spinta costante sulle fasce'],
+        'penalizzati' => ['Colpani' => 'Troppo discontinuo'],
+        'nascosti' => ['Thiam'],
+        'giovani' => ['Bakoune']
+    ],
+    'NAP' => [
+        'allenatore' => 'M. Allegri',
+        'rigoristi' => ['De Bruyne', 'Hojlund', 'Lukaku'],
+        'punizioni' => ['De Bruyne', 'Politano'],
+        'angoli' => ['De Bruyne', 'Politano', 'Neres'],
+        'ballottaggi' => ['Santos A. (55%) vs Politano (45%)', 'Marin R. (51%) vs Olivera (49%)'],
+        'valorizzati' => ['Santos A.' => 'Prolifico in contropiede', 'McTominay' => 'Prolifico sui piazzati e inserimenti'],
+        'penalizzati' => ['Gilmour' => 'Indietro nelle gerarchie'],
+        'nascosti' => ['Olivera'],
+        'giovani' => ['Vergara']
+    ],
+    'PAR' => [
+        'allenatore' => 'C. Cuesta',
+        'rigoristi' => ['Pellegrino M.', 'Valeri', 'Bernabè'],
+        'punizioni' => ['Bernabè', 'Nicolussi Caviglia'],
+        'angoli' => ['Bernabè', 'Nicolussi Caviglia', 'Valeri'],
+        'ballottaggi' => ['Nicolussi Caviglia (51%) vs Sorensen O. (49%)', 'Tourè E. (55%) vs Diallo O. (45%)', 'Corvi (55%) vs Daffara (45%)', 'Frigan (51%) vs Ondrejka (49%)'],
+        'valorizzati' => ['Bernabè' => 'Riferimento tecnico del centrocampo', 'Pellegrino M.' => 'Terminale sulle palle alte'],
+        'penalizzati' => ['Sorensen O.' => 'Indietro nelle gerarchie'],
+        'nascosti' => ['Delprato'],
+        'giovani' => ['Elphege']
+    ],
+    'ROM' => [
+        'allenatore' => 'G. Gasperini',
+        'rigoristi' => ['Malen', 'Dybala', 'Soulè'],
+        'punizioni' => ['Dybala', 'Soulè'],
+        'angoli' => ['Dybala', 'Soulè', 'Wesley'],
+        'ballottaggi' => ['Koulierakis (55%) vs Hermoso (45%)', 'Soulè (51%) vs Pellegrini Lo. (49%)', 'Dybala (55%) vs Castro S. (45%)'],
+        'valorizzati' => ['Malen' => 'Pressing gli porta palloni puliti', 'Wesley' => 'Esterno a tutto campo valorizzato'],
+        'penalizzati' => ['Vaz' => 'Troppa concorrenza'],
+        'nascosti' => ['Cristante'],
+        'giovani' => ['Pisilli']
+    ],
+    'SAS' => [
+        'allenatore' => 'A. Aquilani',
+        'rigoristi' => ['Berardi', 'Pinamonti', 'Laurientè'],
+        'punizioni' => ['Berardi', 'Laurientè'],
+        'angoli' => ['Berardi', 'Laurientè', 'Doig'],
+        'ballottaggi' => ['Walukiewicz (51%) vs Candè (49%)', 'Muric (51%) vs Turati (49%)', 'Lipani (51%) vs Konè I. (49%)', 'Pinamonti (60%) vs Bowie (40%)'],
+        'valorizzati' => ['Laurientè' => 'Attacco della profondità', 'Berardi' => 'Riferimento e rigorista top'],
+        'penalizzati' => ['Muric' => 'Soffre la costruzione dal basso', 'Walukiewicz' => 'Soffre costruzione dal basso'],
+        'nascosti' => ['Matic'],
+        'giovani' => ['Lipani']
+    ],
+    'TOR' => [
+        'allenatore' => 'I. Abate',
+        'rigoristi' => ['Vlasic', 'Kulenovic', 'Zapata D.'],
+        'punizioni' => ['Vlasic', 'Oristanio'],
+        'angoli' => ['Vlasic', 'Oristanio', 'Ilic'],
+        'ballottaggi' => ['Oristanio (51%) vs Adams C. (49%)', 'Comuzzo (51%) vs Comert (49%)', 'Fitz-Jim (51%) vs Gineitis (49%)'],
+        'valorizzati' => ['Simeone' => 'Utile nel gioco aereo per gli esterni', 'Vlasic' => 'Svaria tra le linee'],
+        'penalizzati' => ['Biraghi' => 'Soffre la difesa alta'],
+        'nascosti' => ['Oristanio'],
+        'giovani' => ['Njie']
+    ],
+    'UDI' => [
+        'allenatore' => 'K. Runjaic',
+        'rigoristi' => ['Davis K.', 'Solet', 'Ekkelenkamp'],
+        'punizioni' => ['Zaniolo', 'Ekkelenkamp'],
+        'angoli' => ['Zaniolo', 'Ekkelenkamp', 'Vojvoda'],
+        'ballottaggi' => ['Piotrowski (55%) vs Unai Gomez (45%)'],
+        'valorizzati' => ['Davis K.' => 'Presenza fisica per le ripartenze', 'Ekkelenkamp' => 'Riferimento e inserimenti'],
+        'penalizzati' => ['Karlstrom' => 'Posizionamento molto arretrato'],
+        'nascosti' => ['Kristensen T.'],
+        'giovani' => ['Miller L.']
+    ],
+    'VEN' => [
+        'allenatore' => 'G. Stroppa',
+        'rigoristi' => ['Adams A.', 'Rrahmani Al.', 'Yeboah J.'],
+        'punizioni' => ['Busio', 'Basic'],
+        'angoli' => ['Busio', 'Perez K.', 'Basic'],
+        'ballottaggi' => ['Correia T. (51%) vs Hainaut (49%)', 'Adams A. (55%) vs Rrahmani Al. (45%)'],
+        'valorizzati' => ['Yeboah J.' => 'Dribbling e profondità', 'Busio' => 'Uomo chiave nel gioco del mister'],
+        'penalizzati' => ['Franjic' => 'Troppa concorrenza'],
+        'nascosti' => ['Perez K.'],
+        'giovani' => ['Dagasso']
+    ]
+];
+
+// ==============================================================================
+// CLASSIFICAZIONE DIFFICOLTÀ SQUADRE
 // ==============================================================================
 $teamCategories = [
-    // DIFFICILI (3)
     'NAP' => 3, 'INT' => 3, 'MIL' => 3, 'ROM' => 3, 'COM' => 3, 'JUV' => 3,
-    // MEDIE (2)
     'LAZ' => 2, 'ATA' => 2, 'FIO' => 2, 'BOL' => 2,
-    // FACILI (1)
     'SAS' => 1, 'TOR' => 1, 'EMP' => 1, 'CAG' => 1, 'MON' => 1, 
     'PAR' => 1, 'UDI' => 1, 'VEN' => 1, 'FRO' => 1, 'GEN' => 1, 'LEC' => 1
 ];
 
-// ==============================================================================
-// 2. CALENDARIO UFFICIALE SERIE A 2026/2027 (38 GIORNATE PER SQUADRA)
-// ==============================================================================
 $teamFixtures = [
     'ROM' => ['FIO', 'LEC', 'ATA', 'TOR', 'INT', 'COM', 'GEN', 'NAP', 'CAG', 'UDI', 'SAS', 'PAR', 'MON', 'BOL', 'LAZ', 'JUV', 'EMP', 'VEN', 'MIL', 'ATA', 'UDI', 'MON', 'TOR', 'PAR', 'SAS', 'VEN', 'JUV', 'GEN', 'LEC', 'BOL', 'INT', 'LAZ', 'EMP', 'NAP', 'FIO', 'MIL', 'COM', 'CAG'],
     'COM' => ['UDI', 'NAP', 'GEN', 'PAR', 'FIO', 'ROM', 'LAZ', 'MON', 'VER', 'INT', 'CAG', 'JUV', 'LEC', 'BOL', 'MIL', 'VEN', 'EMP', 'ATA', 'TOR', 'NAP', 'UDI', 'MON', 'VER', 'BOL', 'MIL', 'PAR', 'GEN', 'JUV', 'FIO', 'CAG', 'LEC', 'LAZ', 'TOR', 'INT', 'ATA', 'EMP', 'ROM', 'VEN'],
@@ -79,7 +299,6 @@ $teamFixtures = [
     'EMP' => ['MON', 'ROM', 'JUV', 'LAZ', 'FIO', 'NAP', 'PAR', 'UDI', 'MON', 'GEN', 'COM', 'VEN', 'SAS', 'CAG', 'LEC', 'TOR', 'MIL', 'INT', 'ATA', 'MON', 'ROM', 'JUV', 'LAZ', 'FIO', 'NAP', 'PAR', 'UDI', 'MON', 'GEN', 'COM', 'VEN', 'SAS', 'CAG', 'LEC', 'TOR', 'MIL', 'INT', 'ATA']
 ];
 
-// GENERAZIONE AUTOMATICA DELLE DIFFICOLTÀ GIORNATA PER GIORNATA
 $teamCalendars = [];
 foreach ($teamFixtures as $teamCode => $fixtures) {
     $teamCalendars[$teamCode] = array_map(fn($opp) => $teamCategories[$opp] ?? 1, $fixtures);
@@ -100,7 +319,7 @@ function getTeamCalendarStats($teamCode) {
 // PARSER XLSX NATIVO
 function parseXlsxNative($filePath) {
     if (!class_exists('ZipArchive')) {
-        return ['error' => true, 'message' => 'L\'estensione PHP "zip" non è abilitata in XAMPP!'];
+        return ['error' => true, 'message' => 'L\'estensione PHP "zip" non è abilitata!'];
     }
 
     $zip = new ZipArchive();
@@ -151,7 +370,7 @@ function parseXlsxNative($filePath) {
             $rowCells = [];
             foreach ($r->c as $c) {
                 $colIdx = excelColumnToIndex((string)$c['r']);
-                $t = (string)$c['t'];
+                $t = (string)($c['t'] ?? '');
                 $v = (string)($c->v ?? '');
                 $rowCells[$colIdx] = ($t === 's' && isset($sharedStrings[(int)$v])) ? $sharedStrings[(int)$v] : $v;
             }
@@ -404,7 +623,7 @@ $roleBadges = ['P' => 'bg-warning text-dark', 'D' => 'bg-primary', 'C' => 'bg-in
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FantaStrategy EXCEL SUPREME ⚡</title>
+    <title>FantaStrategy LIVE ENGINE ⚡</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <style>
@@ -424,7 +643,7 @@ $roleBadges = ['P' => 'bg-warning text-dark', 'D' => 'bg-primary', 'C' => 'bg-in
         .field-player-badge { background: rgba(0,0,0,0.7); border: 1px solid #ffc107; color: #fff; padding: 3px 9px; border-radius: 12px; font-size: 0.78rem; display: inline-block; }
         .field-player-badge.riserva { border-color: #6c757d; opacity: 0.85; background: rgba(30, 40, 60, 0.8); }
         .progress-box { width: 100%; background-color: #1a2744; border-radius: 5px; overflow: hidden; display: none; }
-        .progress-bar-custom { width: 0%; height: 22px; background-color: #198754; text-align: center; line-height: 22px; color: white; font-size: 12px; font-weight: bold; transition: width 0.2s ease; }
+        .progress-bar-custom { width: 0%; height: 22px; background-color: #198754; text-align: center; line-height: 22px; color: white; font-size: 12px; font-weight: bold; }
         .note-text { font-size: 0.78rem; color: #9aa8c3; display: block; margin-top: 4px; white-space: pre-line; }
         .btn-fav { cursor: pointer; color: #6c757d; transition: color 0.2s; }
         .btn-fav.active { color: #ffc107; }
@@ -437,13 +656,14 @@ $roleBadges = ['P' => 'bg-warning text-dark', 'D' => 'bg-primary', 'C' => 'bg-in
         .cal-box { background: #081124; border: 1px solid #1a2f57; border-radius: 10px; padding: 10px; }
         .combo-card { background: #0b172e; border: 1px solid #1c3866; border-radius: 10px; transition: transform 0.2s; }
         .combo-card:hover { border-color: #ffc107; transform: translateY(-2px); }
+        .tactical-badge { font-size: 0.72rem; padding: 3px 7px; border-radius: 6px; margin-right: 3px; font-weight: bold; }
     </style>
 </head>
 <body>
 
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark border-bottom border-secondary sticky-top shadow">
     <div class="container-fluid px-4">
-        <a class="navbar-brand fw-bold text-warning fs-4" href="#"><i class="fa-solid fa-crown me-2"></i>FantaStrategy EXCEL SUPREME</a>
+        <a class="navbar-brand fw-bold text-warning fs-4" href="#"><i class="fa-solid fa-crown me-2"></i>FantaStrategy LIVE ENGINE</a>
         <div class="d-flex align-items-center gap-2">
             <span class="badge bg-secondary"><?php echo count($players); ?> Calciatori in Database</span>
             <button class="btn btn-sm btn-outline-warning" data-bs-toggle="modal" data-bs-target="#importModal"><i class="fa-solid fa-file-excel me-1"></i> Carica JSON/Excel</button>
@@ -517,7 +737,7 @@ $roleBadges = ['P' => 'bg-warning text-dark', 'D' => 'bg-primary', 'C' => 'bg-in
         </div>
     </div>
 
-    <!-- NUOVA SEZIONE: ALGORITMO ABBINAMENTI STRATEGICI (PORTIERI A 3 & ATTACCANTI A 2) -->
+    <!-- ALGORITMO ABBINAMENTI STRATEGICI -->
     <div class="row g-4 mb-4">
         <div class="col-12">
             <div class="card card-custom p-3 border-info shadow">
@@ -533,7 +753,6 @@ $roleBadges = ['P' => 'bg-warning text-dark', 'D' => 'bg-primary', 'C' => 'bg-in
                 </div>
 
                 <div class="row g-3">
-                    <!-- TRIDENTI PORTIERI -->
                     <div class="col-lg-6">
                         <h6 class="text-warning fw-bold mb-2"><i class="fa-solid fa-shield-halved me-1"></i> Top Tridenti Portieri (Incroci Calendario Perfetti)</h6>
                         <div id="keeperCombosBox">
@@ -541,7 +760,6 @@ $roleBadges = ['P' => 'bg-warning text-dark', 'D' => 'bg-primary', 'C' => 'bg-in
                         </div>
                     </div>
 
-                    <!-- COPPIE ATTACCANTI -->
                     <div class="col-lg-6">
                         <h6 class="text-danger fw-bold mb-2"><i class="fa-solid fa-fire me-1"></i> Top Coppie d'Attacco a Due (Alternanza e Potenziale Bonus)</h6>
                         <div id="strikerCombosBox">
@@ -553,7 +771,7 @@ $roleBadges = ['P' => 'bg-warning text-dark', 'D' => 'bg-primary', 'C' => 'bg-in
         </div>
     </div>
 
-    <!-- SEZIONE GENERATORE SQUADRA IA CON INCROCI CALENDARIO SQUADRE FANTALAB -->
+    <!-- GENERATORE SQUADRA IA -->
     <div class="row g-4 mb-4">
         <div class="col-12">
             <div class="card ai-generator-card p-3 shadow">
@@ -577,7 +795,6 @@ $roleBadges = ['P' => 'bg-warning text-dark', 'D' => 'bg-primary', 'C' => 'bg-in
                     </div>
                 </div>
 
-                <!-- RECAP CALENDARIO PER RUOLO -->
                 <div id="calendarRecapBox" class="mt-3 pt-3 border-top border-secondary" style="display: none;">
                     <h6 class="text-warning fw-bold mb-2"><i class="fa-solid fa-calendar-days me-2"></i>Analisi Incroci Calendario FantaLab per Ruolo (38 Giornate)</h6>
                     <div class="row g-2" id="calendarRecapContent"></div>
@@ -674,20 +891,26 @@ $roleBadges = ['P' => 'bg-warning text-dark', 'D' => 'bg-primary', 'C' => 'bg-in
         </div>
     </div>
 
-    <!-- MAIN CONTENT: TABELLA FULL-WIDTH -->
+    <!-- MAIN CONTENT: TABELLA FULL-WIDTH CON FILTRI TATTICI -->
     <div class="row g-4">
         <div class="col-12">
             <div class="card card-custom p-3">
                 <div class="row g-2 mb-3">
-                    <div class="col-md-5">
+                    <div class="col-md-4">
                         <div class="input-group input-group-sm">
                             <span class="input-group-text bg-dark border-secondary"><i class="fa-solid fa-magnifying-glass"></i></span>
-                            <input type="text" id="searchInput" class="form-control border-secondary" placeholder="Cerca calciatore, squadra o tag...">
+                            <input type="text" id="searchInput" class="form-control border-secondary" placeholder="Cerca calciatore, squadra, tag o Quick-Bid (es. Barella 42)... (Premere 'F' o '/' per cercare)">
                         </div>
                     </div>
-                    <div class="col-md-7 d-flex gap-1 justify-content-md-end flex-wrap">
+                    <div class="col-md-8 d-flex gap-1 justify-content-md-end flex-wrap">
                         <button class="btn btn-sm btn-outline-light filter-btn active" data-role="all">Tutti</button>
                         <button class="btn btn-sm btn-outline-warning filter-btn" data-role="fav"><i class="fa-solid fa-star text-warning me-1"></i> Preferiti</button>
+                        <button class="btn btn-sm btn-outline-danger filter-btn" data-role="rigoristi">⚽ Rigoristi</button>
+                        <button class="btn btn-sm btn-outline-info filter-btn" data-role="piazzati">🎯 Piazzati</button>
+                        <button class="btn btn-sm btn-outline-success filter-btn" data-role="valorizzati">📈 Valorizzati</button>
+                        <button class="btn btn-sm btn-outline-secondary filter-btn" data-role="nascosti">🕵️ Nascosti</button>
+                        <button class="btn btn-sm btn-outline-warning filter-btn" data-role="giovani">👶 Giovani</button>
+                        <div class="vr mx-1"></div>
                         <button class="btn btn-sm btn-outline-warning filter-btn" data-role="P">P</button>
                         <button class="btn btn-sm btn-outline-primary filter-btn" data-role="D">D</button>
                         <button class="btn btn-sm btn-outline-info filter-btn" data-role="C">C</button>
@@ -704,7 +927,7 @@ $roleBadges = ['P' => 'bg-warning text-dark', 'D' => 'bg-primary', 'C' => 'bg-in
                                 <th>Calciatore</th>
                                 <th>Fascia</th>
                                 <th>Statistiche</th>
-                                <th>Tag & Note Excel</th>
+                                <th>Tag & Tattica</th>
                                 <th>Prezzo Excel</th>
                                 <th>Prezzo Reale</th>
                                 <th>Fanta-Index 📊</th>
@@ -719,6 +942,16 @@ $roleBadges = ['P' => 'bg-warning text-dark', 'D' => 'bg-primary', 'C' => 'bg-in
                                 </tr>
                             <?php else: ?>
                                 <?php foreach ($players as $p): 
+                                    $squadra = $p['squadra'];
+                                    $tattica = $tatticheSquadre[$squadra] ?? null;
+
+                                    $isRigorista = $tattica && in_array($p['nome'], $tattica['rigoristi']);
+                                    $isPiazzato = $tattica && (in_array($p['nome'], $tattica['punizioni']) || in_array($p['nome'], $tattica['angoli']));
+                                    $isValorizzato = $tattica && array_key_exists($p['nome'], $tattica['valorizzati']);
+                                    $isPenalizzato = $tattica && array_key_exists($p['nome'], $tattica['penalizzati']);
+                                    $isNascosto = $tattica && in_array($p['nome'], $tattica['nascosti']);
+                                    $isGiovane = $tattica && in_array($p['nome'], $tattica['giovani']);
+
                                     $rowClass = '';
                                     if (($p['stato'] ?? '') === 'preso') $rowClass = 'player-preso';
                                     if (($p['stato'] ?? '') === 'perso') $rowClass = 'player-perso';
@@ -741,7 +974,15 @@ $roleBadges = ['P' => 'bg-warning text-dark', 'D' => 'bg-primary', 'C' => 'bg-in
                                     
                                     $playerJson = htmlspecialchars(json_encode($p), ENT_QUOTES, 'UTF-8');
                                 ?>
-                                    <tr class="<?php echo $rowClass; ?>" data-role="<?php echo $p['ruolo']; ?>" data-fav="<?php echo $isFav ? '1' : '0'; ?>" onclick="apriDettagliGiocatore(<?php echo $playerJson; ?>, event)">
+                                    <tr class="<?php echo $rowClass; ?>" 
+                                        data-role="<?php echo $p['ruolo']; ?>" 
+                                        data-fav="<?php echo $isFav ? '1' : '0'; ?>"
+                                        data-rigorista="<?php echo $isRigorista ? '1' : '0'; ?>"
+                                        data-piazzato="<?php echo $isPiazzato ? '1' : '0'; ?>"
+                                        data-valorizzato="<?php echo $isValorizzato ? '1' : '0'; ?>"
+                                        data-nascosto="<?php echo $isNascosto ? '1' : '0'; ?>"
+                                        data-giovane="<?php echo $isGiovane ? '1' : '0'; ?>"
+                                        onclick="apriDettagliGiocatore(<?php echo $playerJson; ?>, event)">
                                         <td onclick="event.stopPropagation();">
                                             <form method="POST" style="display:inline;">
                                                 <input type="hidden" name="action" value="toggle_favorite">
@@ -754,7 +995,7 @@ $roleBadges = ['P' => 'bg-warning text-dark', 'D' => 'bg-primary', 'C' => 'bg-in
                                         <td><span class="badge <?php echo $roleBadges[$p['ruolo']]; ?> badge-role"><?php echo $p['ruolo']; ?></span></td>
                                         <td>
                                             <span class="fw-bold fs-6 player-name"><?php echo htmlspecialchars($p['nome']); ?></span><br>
-                                            <small class="text-muted player-team"><?php echo htmlspecialchars($p['squadra']); ?></small>
+                                            <small class="text-muted player-team"><?php echo htmlspecialchars($p['squadra']); ?> (<?php echo $tattica['allenatore'] ?? 'ND'; ?>)</small>
                                         </td>
                                         <td><span class="badge bg-secondary"><?php echo htmlspecialchars($p['fascia'] ?? 'ND'); ?></span></td>
                                         <td>
@@ -763,23 +1004,21 @@ $roleBadges = ['P' => 'bg-warning text-dark', 'D' => 'bg-primary', 'C' => 'bg-in
                                         </td>
                                         <td>
                                             <div class="mb-1">
+                                                <!-- BADGE TATTICI NUOVI -->
+                                                <?php if ($isRigorista): ?><span class="badge bg-danger tactical-badge">⚽ RIGORISTA</span><?php endif; ?>
+                                                <?php if ($isPiazzato): ?><span class="badge bg-info text-dark tactical-badge">🎯 PIAZZATI</span><?php endif; ?>
+                                                <?php if ($isValorizzato): ?><span class="badge bg-success tactical-badge">📈 VALORIZZATO</span><?php endif; ?>
+                                                <?php if ($isPenalizzato): ?><span class="badge bg-warning text-dark tactical-badge">⚠️ PENALIZZATO</span><?php endif; ?>
+                                                <?php if ($isNascosto): ?><span class="badge bg-secondary tactical-badge">🕵️ NASCOSTO</span><?php endif; ?>
+                                                <?php if ($isGiovane): ?><span class="badge bg-primary tactical-badge">👶 GIOVANE</span><?php endif; ?>
+
+                                                <!-- BADGE EXCEL ESSENZIALI -->
                                                 <?php if (str_contains($notesLower, 'titolarissimo')): ?><span class="badge bg-dark border border-success text-success me-1" data-bs-toggle="tooltip" title="Titolare inamovibile">🔄 Tit</span><?php endif; ?>
                                                 <?php if (str_contains($notesLower, 'modificatore')): ?><span class="badge bg-dark border border-primary text-primary me-1" data-bs-toggle="tooltip" title="Ottimo per Modificatore">🛡️ Mod</span><?php endif; ?>
                                                 <?php if ($isPortiere && str_contains($notesLower, 'imbattibil')): ?><span class="badge bg-dark border border-info text-info me-1" data-bs-toggle="tooltip" title="Portiere imbattibilità">🛡️ Imbattibilità</span><?php endif; ?>
                                                 <?php if ($isPortiere && str_contains($notesLower, 'pararigori')): ?><span class="badge bg-dark border border-warning text-warning me-1" data-bs-toggle="tooltip" title="Para-rigori">🧤 ParaRig</span><?php endif; ?>
-                                                <?php if (!$isPortiere && str_contains($notesLower, 'rigoris')): ?><span class="badge bg-dark border border-warning text-warning me-1" data-bs-toggle="tooltip" title="Rigorista principale">⚽ Rig</span><?php endif; ?>
-                                                <?php if (str_contains($notesLower, 'tiratore') || str_contains($notesLower, 'punizioni')): ?><span class="badge bg-dark border border-info text-info me-1" data-bs-toggle="tooltip" title="Tiratore di punizioni">🎯 Pun</span><?php endif; ?>
-                                                <?php if (str_contains($notesLower, 'assistman')): ?><span class="badge bg-dark border border-info text-info me-1" data-bs-toggle="tooltip" title="Specialista in assist">👟 Assistman</span><?php endif; ?>
-                                                <?php if (str_contains($notesLower, 'tanti gol')): ?><span class="badge bg-dark border border-danger text-danger me-1" data-bs-toggle="tooltip" title="Propensione al gol">⚽ Tanti Gol</span><?php endif; ?>
-                                                <?php if (str_contains($notesLower, 'bonus')): ?><span class="badge bg-dark border border-warning text-warning me-1" data-bs-toggle="tooltip" title="Portatore di bonus">🎁 Bonus</span><?php endif; ?>
                                                 <?php if (str_contains($notesLower, 'rischio infortuni')): ?><span class="badge bg-dark border border-danger text-danger me-1" data-bs-toggle="tooltip" title="Rischio infortuni">🚑 Inf</span><?php endif; ?>
-                                                <?php if (str_contains($notesLower, 'subentrante')): ?><span class="badge bg-dark border border-secondary text-light me-1" data-bs-toggle="tooltip" title="Subentrante frequente">🔀 Sub</span><?php endif; ?>
                                                 <?php if (str_contains($notesLower, 'scommessa')): ?><span class="badge bg-dark border border-purple text-warning me-1" data-bs-toggle="tooltip" title="Scommessa">🎰 Scommessa</span><?php endif; ?>
-                                                <?php if (str_contains($notesLower, 'incostante')): ?><span class="badge bg-dark border border-danger text-danger me-1" data-bs-toggle="tooltip" title="Rendimento discontinuo">📉 Incostante</span><?php endif; ?>
-                                                <?php if (str_contains($notesLower, 'costante')): ?><span class="badge bg-dark border border-success text-success me-1" data-bs-toggle="tooltip" title="Rendimento costante">📈 Costante</span><?php endif; ?>
-                                                <?php if (str_contains($notesLower, 'cartellini')): ?><span class="badge bg-dark border border-warning text-warning me-1" data-bs-toggle="tooltip" title="Rischio cartellini">🟨 Cartellini</span><?php endif; ?>
-                                                <?php if (str_contains($notesLower, 'coppa africa')): ?><span class="badge bg-dark border border-warning text-warning me-1" data-bs-toggle="tooltip" title="Coppa d'Africa">🌍 Coppa Africa</span><?php endif; ?>
-                                                <?php if (str_contains($notesLower, 'jolly')): ?><span class="badge bg-dark border border-info text-info me-1" data-bs-toggle="tooltip" title="Jolly">🃏 Jolly</span><?php endif; ?>
                                             </div>
 
                                             <?php if (!empty($p['note'])): ?>
@@ -804,7 +1043,7 @@ $roleBadges = ['P' => 'bg-warning text-dark', 'D' => 'bg-primary', 'C' => 'bg-in
                                                         <input type="hidden" name="action" value="update_status">
                                                         <input type="hidden" name="player_id" value="<?php echo $p['id']; ?>">
                                                         <input type="hidden" name="status" value="perso">
-                                                        <button type="submit" class="btn btn-sm btn-outline-danger"><i class="fa-solid fa-xmark"></i></button>
+                                                        <button type="submit" class="btn btn-sm btn-outline-danger" data-bs-toggle="tooltip" title="Segna come perso / Sconsigliato"><i class="fa-solid fa-trash-can"></i></button>
                                                     </form>
                                                 </div>
                                             <?php endif; ?>
@@ -813,7 +1052,7 @@ $roleBadges = ['P' => 'bg-warning text-dark', 'D' => 'bg-primary', 'C' => 'bg-in
                                             <form method="POST" style="display:inline;" onsubmit="return confirm('Eliminare questo calciatore?');">
                                                 <input type="hidden" name="action" value="delete">
                                                 <input type="hidden" name="player_id" value="<?php echo $p['id']; ?>">
-                                                <button type="submit" class="btn btn-sm btn-outline-secondary border-0"><i class="fa-solid fa-trash-can text-danger"></i></button>
+                                                <button type="submit" class="btn btn-sm btn-outline-secondary border-0"><i class="fa-solid fa-xmark text-danger"></i></button>
                                             </form>
                                         </td>
                                     </tr>
@@ -827,7 +1066,7 @@ $roleBadges = ['P' => 'bg-warning text-dark', 'D' => 'bg-primary', 'C' => 'bg-in
     </div>
 </div>
 
-<!-- MODAL SCHEDA DETTAGLIATA CALCIATORE CON DIFFICOLTÀ SQUADRA FANTALAB -->
+<!-- MODAL SCHEDA DETTAGLIATA GIOCATORE CON TUTTE LE STATISTICHE EXCEL E DATI TATTICI -->
 <div class="modal fade" id="playerDetailModal" tabindex="-1">
     <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content card-custom border-warning">
@@ -843,9 +1082,18 @@ $roleBadges = ['P' => 'bg-warning text-dark', 'D' => 'bg-primary', 'C' => 'bg-in
             </div>
             <div class="modal-body">
 
-                <!-- CONSIGLI FANTA-ADVISOR -->
+                <!-- MAX BID ALERT DINAMICO (FUNZIONALITÀ 3) -->
+                <div class="alert alert-danger d-flex align-items-center justify-content-between p-2 mb-3 border-danger bg-dark">
+                    <div>
+                        <i class="fa-solid fa-triangle-exclamation text-danger fs-4 me-2"></i>
+                        <span class="fw-bold text-white small">Soglia Max Rilancio Sicuro per questo Giocatore:</span>
+                    </div>
+                    <span id="modalMaxBidCalculated" class="badge bg-danger fs-6 fw-bold">0 FM</span>
+                </div>
+
+                <!-- 1. FANTA-ADVICE & ANALISI TATTICA -->
                 <div class="advisor-box mb-3">
-                    <h6 class="text-warning fw-bold mb-1"><i class="fa-solid fa-lightbulb me-1"></i> Fanta-Advice & Abbinamenti Rosa</h6>
+                    <h6 class="text-warning fw-bold mb-1"><i class="fa-solid fa-lightbulb me-1"></i> Fanta-Advice & Analisi Tattica Allenatore</h6>
                     <div id="modalPlayerAdvice" class="small text-light"></div>
                 </div>
 
@@ -855,112 +1103,48 @@ $roleBadges = ['P' => 'bg-warning text-dark', 'D' => 'bg-primary', 'C' => 'bg-in
                     <div class="row g-2 text-center" id="modalCalendarBadges"></div>
                 </div>
 
-                <!-- 1. INDICI D'ASTA E VALUTAZIONE -->
-                <h6 class="text-warning fw-bold border-bottom border-secondary pb-1 mb-2"><i class="fa-solid fa-chart-pie me-1"></i> Valutazione Asta & Indici</h6>
-                <div class="row g-2 text-center mb-3">
-                    <div class="col-md-2 col-4">
-                        <div class="p-2 bg-dark rounded border border-secondary">
-                            <small class="text-muted d-block">Fascia</small>
-                            <strong id="modalPlayerFascia" class="text-warning fs-6"></strong>
-                        </div>
-                    </div>
-                    <div class="col-md-2 col-4">
-                        <div class="p-2 bg-dark rounded border border-secondary">
-                            <small class="text-muted d-block">Quota</small>
-                            <strong id="modalPlayerQuo" class="text-info fs-6"></strong>
-                        </div>
-                    </div>
-                    <div class="col-md-2 col-4">
-                        <div class="p-2 bg-dark rounded border border-secondary">
-                            <small class="text-muted d-block">PMA %</small>
-                            <strong id="modalPlayerPma" class="text-light fs-6"></strong>
-                        </div>
-                    </div>
-                    <div class="col-md-2 col-4">
-                        <div class="p-2 bg-dark rounded border border-secondary">
-                            <small class="text-muted d-block">Titolarità</small>
-                            <strong id="modalPlayerTitolarita" class="text-success fs-6"></strong>
-                        </div>
-                    </div>
-                    <div class="col-md-2 col-4">
-                        <div class="p-2 bg-dark rounded border border-secondary">
-                            <small class="text-muted d-block">Affidabilità</small>
-                            <strong id="modalPlayerAffidabilita" class="text-info fs-6"></strong>
-                        </div>
-                    </div>
-                    <div class="col-md-2 col-4">
-                        <div class="p-2 bg-dark rounded border border-secondary">
-                            <small class="text-muted d-block">Integrità</small>
-                            <strong id="modalPlayerIntegrita" class="text-danger fs-6"></strong>
-                        </div>
+                <!-- BALLOTTAGGI LIVE & GERARCHIE PIAZZATI SQUADRA -->
+                <div class="p-2 border border-secondary rounded bg-dark mb-3">
+                    <h6 class="text-info fw-bold mb-1 small"><i class="fa-solid fa-scale-balanced me-1"></i> Ballottaggi & Gerarchia Piazzati (<span id="squadraPiazzatiNome"></span>)</h6>
+                    <div id="modalBallottaggiBox" class="small text-light mb-2"></div>
+                    <div class="row g-2 text-center">
+                        <div class="col-md-4"><div class="p-1 bg-black rounded border border-secondary"><small class="text-muted d-block fs-7">Rigoristi</small><strong id="modalRigoristiSquadra" class="text-danger small"></strong></div></div>
+                        <div class="col-md-4"><div class="p-1 bg-black rounded border border-secondary"><small class="text-muted d-block fs-7">Punizioni</small><strong id="modalPunizioniSquadra" class="text-info small"></strong></div></div>
+                        <div class="col-md-4"><div class="p-1 bg-black rounded border border-secondary"><small class="text-muted d-block fs-7">Angoli</small><strong id="modalAngoliSquadra" class="text-warning small"></strong></div></div>
                     </div>
                 </div>
 
-                <!-- 2. STATISTICHE GENERALI -->
+                <!-- INDICI D'ASTA E VALUTAZIONE EXCEL -->
+                <h6 class="text-warning fw-bold border-bottom border-secondary pb-1 mb-2"><i class="fa-solid fa-chart-pie me-1"></i> Valutazione Asta & Indici Excel</h6>
+                <div class="row g-2 text-center mb-3">
+                    <div class="col-md-2 col-4"><div class="p-2 bg-dark rounded border border-secondary"><small class="text-muted d-block">Fascia</small><strong id="modalPlayerFascia" class="text-warning fs-6"></strong></div></div>
+                    <div class="col-md-2 col-4"><div class="p-2 bg-dark rounded border border-secondary"><small class="text-muted d-block">Quota</small><strong id="modalPlayerQuo" class="text-info fs-6"></strong></div></div>
+                    <div class="col-md-2 col-4"><div class="p-2 bg-dark rounded border border-secondary"><small class="text-muted d-block">PMA %</small><strong id="modalPlayerPma" class="text-light fs-6"></strong></div></div>
+                    <div class="col-md-2 col-4"><div class="p-2 bg-dark rounded border border-secondary"><small class="text-muted d-block">Titolarità</small><strong id="modalPlayerTitolarita" class="text-success fs-6"></strong></div></div>
+                    <div class="col-md-2 col-4"><div class="p-2 bg-dark rounded border border-secondary"><small class="text-muted d-block">Affidabilità</small><strong id="modalPlayerAffidabilita" class="text-info fs-6"></strong></div></div>
+                    <div class="col-md-2 col-4"><div class="p-2 bg-dark rounded border border-secondary"><small class="text-muted d-block">Integrità</small><strong id="modalPlayerIntegrita" class="text-danger fs-6"></strong></div></div>
+                </div>
+
+                <!-- STATISTICHE GENERALI -->
                 <h6 class="text-warning fw-bold border-bottom border-secondary pb-1 mb-2"><i class="fa-solid fa-list-ol me-1"></i> Statistiche di Rendimento</h6>
                 <div class="row g-2 text-center mb-3">
-                    <div class="col-md-3 col-6">
-                        <div class="p-2 bg-dark rounded border border-secondary">
-                            <small class="text-muted d-block">MV / FMV</small>
-                            <span class="fs-6 fw-bold text-light"><span id="modalPlayerMV"></span> / <span id="modalPlayerFMV" class="text-info"></span></span>
-                        </div>
-                    </div>
-                    <div class="col-md-3 col-6">
-                        <div class="p-2 bg-dark rounded border border-secondary">
-                            <small class="text-muted d-block">FMV Attesa</small>
-                            <strong id="modalPlayerFmvExp" class="text-warning fs-6"></strong>
-                        </div>
-                    </div>
-                    <div class="col-md-3 col-6">
-                        <div class="p-2 bg-dark rounded border border-secondary">
-                            <small class="text-muted d-block">Presenze (Tit.)</small>
-                            <span class="fs-6 fw-bold text-light"><span id="modalPlayerPresenze"></span> (<span id="modalPlayerPtTit" class="text-success"></span>)</span>
-                        </div>
-                    </div>
-                    <div class="col-md-3 col-6">
-                        <div class="p-2 bg-dark rounded border border-secondary">
-                            <small class="text-muted d-block">Minuti (Infortuni)</small>
-                            <span class="fs-6 fw-bold text-light"><span id="modalPlayerMinuti"></span>' (<span id="modalPlayerPtInf" class="text-danger"></span>)</span>
-                        </div>
-                    </div>
+                    <div class="col-md-3 col-6"><div class="p-2 bg-dark rounded border border-secondary"><small class="text-muted d-block">MV / FMV</small><span class="fs-6 fw-bold text-light"><span id="modalPlayerMV"></span> / <span id="modalPlayerFMV" class="text-info"></span></span></div></div>
+                    <div class="col-md-3 col-6"><div class="p-2 bg-dark rounded border border-secondary"><small class="text-muted d-block">FMV Attesa</small><strong id="modalPlayerFmvExp" class="text-warning fs-6"></strong></div></div>
+                    <div class="col-md-3 col-6"><div class="p-2 bg-dark rounded border border-secondary"><small class="text-muted d-block">Presenze (Tit.)</small><span class="fs-6 fw-bold text-light"><span id="modalPlayerPresenze"></span> (<span id="modalPlayerPtTit" class="text-success"></span>)</span></div></div>
+                    <div class="col-md-3 col-6"><div class="p-2 bg-dark rounded border border-secondary"><small class="text-muted d-block">Minuti (Infortuni)</small><span class="fs-6 fw-bold text-light"><span id="modalPlayerMinuti"></span>' (<span id="modalPlayerPtInf" class="text-danger"></span>)</span></div></div>
                 </div>
 
-                <!-- 3. BONUS & MALUS DETTAGLIATI -->
-                <h6 class="text-warning fw-bold border-bottom border-secondary pb-1 mb-2"><i class="fa-solid fa-futbol me-1"></i> Bonus & Malus</h6>
+                <!-- BONUS & MALUS DETTAGLIATI -->
+                <h6 class="text-warning fw-bold border-bottom border-secondary pb-1 mb-2"><i class="fa-solid fa-futbol me-1"></i> Bonus & Malus Storici</h6>
                 <div class="row g-2 text-center mb-3">
-                    <div class="col">
-                        <div class="p-2 bg-dark rounded border border-secondary">
-                            <small class="text-muted d-block">Gol</small>
-                            <strong id="modalPlayerGol" class="text-success fs-6"></strong>
-                        </div>
-                    </div>
-                    <div class="col">
-                        <div class="p-2 bg-dark rounded border border-secondary">
-                            <small class="text-muted d-block">Assist</small>
-                            <strong id="modalPlayerAssist" class="text-info fs-6"></strong>
-                        </div>
-                    </div>
-                    <div class="col">
-                        <div class="p-2 bg-dark rounded border border-secondary">
-                            <small class="text-muted d-block">Amm / Esp</small>
-                            <span class="fs-6 fw-bold"><span id="modalPlayerAmm" class="text-warning"></span>/<span id="modalPlayerEsp" class="text-danger"></span></span>
-                        </div>
-                    </div>
-                    <div class="col">
-                        <div class="p-2 bg-dark rounded border border-secondary">
-                            <small class="text-muted d-block">Rigori (S/Sbag/P)</small>
-                            <span class="fs-6 fw-bold text-light"><span id="modalPlayerRigSeg" class="text-success"></span>/<span id="modalPlayerRigSba" class="text-danger"></span>/<span id="modalPlayerRigPar" class="text-warning"></span></span>
-                        </div>
-                    </div>
-                    <div class="col">
-                        <div class="p-2 bg-dark rounded border border-secondary">
-                            <small class="text-muted d-block">Gol Subiti</small>
-                            <strong id="modalPlayerGolSub" class="text-danger fs-6"></strong>
-                        </div>
-                    </div>
+                    <div class="col"><div class="p-2 bg-dark rounded border border-secondary"><small class="text-muted d-block">Gol</small><strong id="modalPlayerGol" class="text-success fs-6"></strong></div></div>
+                    <div class="col"><div class="p-2 bg-dark rounded border border-secondary"><small class="text-muted d-block">Assist</small><strong id="modalPlayerAssist" class="text-info fs-6"></strong></div></div>
+                    <div class="col"><div class="p-2 bg-dark rounded border border-secondary"><small class="text-muted d-block">Amm / Esp</small><span class="fs-6 fw-bold"><span id="modalPlayerAmm" class="text-warning"></span>/<span id="modalPlayerEsp" class="text-danger"></span></span></div></div>
+                    <div class="col"><div class="p-2 bg-dark rounded border border-secondary"><small class="text-muted d-block">Rigori (S/Sbag/P)</small><span class="fs-6 fw-bold text-light"><span id="modalPlayerRigSeg" class="text-success"></span>/<span id="modalPlayerRigSba" class="text-danger"></span>/<span id="modalPlayerRigPar" class="text-warning"></span></span></div></div>
+                    <div class="col"><div class="p-2 bg-dark rounded border border-secondary"><small class="text-muted d-block">Gol Subiti</small><strong id="modalPlayerGolSub" class="text-danger fs-6"></strong></div></div>
                 </div>
 
-                <!-- 4. TAG & NOTE ESTESE -->
+                <!-- TAG & NOTE ESTESE -->
                 <div class="mb-3">
                     <small class="text-muted d-block mb-1 text-uppercase fw-bold">Tag & Caratteristiche:</small>
                     <div id="modalPlayerTags" class="d-flex flex-wrap gap-1 mb-2"></div>
@@ -1011,7 +1195,7 @@ $roleBadges = ['P' => 'bg-warning text-dark', 'D' => 'bg-primary', 'C' => 'bg-in
     </div>
 </div>
 
-<!-- MODAL IMPORT JSON / EXCEL CON PROGRESS BAR -->
+<!-- MODAL IMPORT -->
 <div class="modal fade" id="importModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content card-custom">
@@ -1021,13 +1205,8 @@ $roleBadges = ['P' => 'bg-warning text-dark', 'D' => 'bg-primary', 'C' => 'bg-in
             </div>
             <form id="ajaxUploadForm">
                 <div class="modal-body">
-                    <label class="form-label small text-muted">Seleziona il tuo file (.xlsx, .xls o JSON)</label>
                     <input type="file" id="fileInput" class="form-control mb-3" accept=".xlsx, .xls, .json" required>
-
-                    <div class="progress-box mb-2" id="progressBox">
-                        <div class="progress-bar-custom" id="progressBar">0%</div>
-                    </div>
-
+                    <div class="progress-box mb-2" id="progressBox"><div class="progress-bar-custom" id="progressBar">0%</div></div>
                     <div id="uploadStatus" class="small fw-bold"></div>
                 </div>
                 <div class="modal-footer border-secondary">
@@ -1047,13 +1226,13 @@ $roleBadges = ['P' => 'bg-warning text-dark', 'D' => 'bg-primary', 'C' => 'bg-in
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
+const tatticheMap = <?php echo json_encode($tatticheSquadre, JSON_UNESCAPED_UNICODE); ?>;
+const allDatabasePlayers = <?php echo json_encode($players, JSON_UNESCAPED_UNICODE); ?>;
+const teamCalendarsMap = <?php echo json_encode($teamCalendars, JSON_UNESCAPED_UNICODE); ?>;
 const budgetResiduoAttuale = <?php echo $budgetResiduo; ?>;
 const slotMancantiAttuali = <?php echo $totaleSlotMancanti; ?>;
-const currentLega = "<?php echo $currentLega; ?>";
-const allDatabasePlayers = <?php echo json_encode($players, JSON_UNESCAPED_UNICODE); ?>;
 const slotMancantiPerRuolo = <?php echo json_encode($slotMancanti, JSON_UNESCAPED_UNICODE); ?>;
 const budgetRuoliTarget = <?php echo json_encode($budgetRuoli, JSON_UNESCAPED_UNICODE); ?>;
-const teamCalendarsMap = <?php echo json_encode($teamCalendars, JSON_UNESCAPED_UNICODE); ?>;
 
 function getTeamStats(teamCode) {
     const cal = teamCalendarsMap[teamCode] || Array(38).fill(2);
@@ -1066,7 +1245,7 @@ function getTeamStats(teamCode) {
     return { facili: f, medie: m, difficili: d };
 }
 
-// ALGORITMO DEDICATO ABBINAMENTI PERFETTI PORTIERI (A 3) ED ATTACCANTI (A 2)
+// ALGORITMO ABBINAMENTI PORTIERI E ATTACCANTI
 function calcolaAbbinamentiTop() {
     const kBox = document.getElementById('keeperCombosBox');
     const sBox = document.getElementById('strikerCombosBox');
@@ -1074,7 +1253,6 @@ function calcolaAbbinamentiTop() {
     const portieri = allDatabasePlayers.filter(p => p.ruolo === 'P' && p.stato !== 'perso');
     const attaccanti = allDatabasePlayers.filter(p => p.ruolo === 'A' && p.stato !== 'perso');
 
-    // 1. CALCOLO TRIDENTI PORTIERI (A 3)
     let keeperTeams = [...new Set(portieri.map(p => p.squadra))];
     let keeperCombos = [];
 
@@ -1086,124 +1264,73 @@ function calcolaAbbinamentiTop() {
                 const cal2 = teamCalendarsMap[t2] || Array(38).fill(2);
                 const cal3 = teamCalendarsMap[t3] || Array(38).fill(2);
 
-                let faciliEffettive = 0;
-                let medieEffettive = 0;
-                let difficiliEffettive = 0;
-
+                let facili = 0, medie = 0, difficili = 0;
                 for (let g = 0; g < 38; g++) {
                     const minDiff = Math.min(cal1[g], cal2[g], cal3[g]);
-                    if (minDiff === 1) faciliEffettive++;
-                    else if (minDiff === 2) medieEffettive++;
-                    else difficiliEffettive++;
+                    if (minDiff === 1) facili++;
+                    else if (minDiff === 2) medie++;
+                    else difficili++;
                 }
 
-                keeperCombos.push({
-                    teams: [t1, t2, t3],
-                    facili: faciliEffettive,
-                    medie: medieEffettive,
-                    difficili: difficiliEffettive,
-                    score: (faciliEffettive * 3) + (medieEffettive * 1) - (difficiliEffettive * 2)
-                });
+                keeperCombos.push({ teams: [t1, t2, t3], facili, medie, difficili, score: (facili * 3) + medie - (difficili * 2) });
             }
         }
     }
 
     keeperCombos.sort((a, b) => b.score - a.score);
-    const topKeeperCombos = keeperCombos.slice(0, 3);
+    const topKeeper = keeperCombos.slice(0, 3);
 
     let kHtml = '';
-    if (topKeeperCombos.length === 0) {
-        kHtml = `<div class="alert alert-dark mb-0 small">Nessun portiere sufficiente nel DB per calcolare abbinamenti.</div>`;
-    } else {
-        topKeeperCombos.forEach((c, idx) => {
-            const playersGroup = c.teams.map(t => {
-                const pList = portieri.filter(p => p.squadra === t).map(p => p.nome).join('/');
-                return `<strong class="text-warning">${t}</strong> <small class="text-muted">(${pList || 'Portiere'})</small>`;
-            }).join(' + ');
-
-            kHtml += `
-                <div class="combo-card p-2 mb-2">
-                    <div class="d-flex justify-content-between align-items-center mb-1">
-                        <small class="badge bg-secondary">Opzione #${idx + 1}</small>
-                        <span class="small text-info fw-bold"><i class="fa-solid fa-chart-line me-1"></i>Indice Incrocio: ${c.score} pt</span>
-                    </div>
-                    <div class="small text-white mb-2">${playersGroup}</div>
-                    <div class="d-flex gap-2 text-center">
-                        <span class="badge bg-success flex-fill py-1">🟢 ${c.facili} Partite Facili</span>
-                        <span class="badge bg-warning text-dark flex-fill py-1">🟡 ${c.medie} Medie</span>
-                        <span class="badge bg-danger flex-fill py-1">🔴 ${c.difficili} Big Match</span>
-                    </div>
+    topKeeper.forEach((c, idx) => {
+        kHtml += `
+            <div class="combo-card p-2 mb-2">
+                <small class="badge bg-secondary">Opzione #${idx + 1}</small>
+                <div class="small text-white my-1"><strong>${c.teams.join(' + ')}</strong></div>
+                <div class="d-flex gap-1 text-center small">
+                    <span class="badge bg-success flex-fill">🟢 ${c.facili} Facili</span>
+                    <span class="badge bg-warning text-dark flex-fill">🟡 ${c.medie} Medie</span>
+                    <span class="badge bg-danger flex-fill">🔴 ${c.difficili} Big</span>
                 </div>
-            `;
-        });
-    }
-    kBox.innerHTML = kHtml;
+            </div>
+        `;
+    });
+    kBox.innerHTML = kHtml || '<div class="small text-muted">Carica portieri per vedere gli incroci.</div>';
 
-    // 2. CALCOLO COPPIE ATTACCANTI (A 2)
     let strikerCombos = [];
-    let topStrikers = attaccanti.sort((a, b) => parseFloat(b.fmv || b.mv || 0) - parseFloat(a.mv || 0)).slice(0, 15);
+    let topStrikers = attaccanti.sort((a, b) => parseFloat(b.fmv || 0) - parseFloat(a.fmv || 0)).slice(0, 15);
 
     for (let i = 0; i < topStrikers.length; i++) {
         for (let j = i + 1; j < topStrikers.length; j++) {
             const a1 = topStrikers[i], a2 = topStrikers[j];
-            if (a1.squadra === a2.squadra) continue; // Evita due attaccanti della stessa squadra per la rotazione
+            if (a1.squadra === a2.squadra) continue;
 
             const cal1 = teamCalendarsMap[a1.squadra] || Array(38).fill(2);
             const cal2 = teamCalendarsMap[a2.squadra] || Array(38).fill(2);
 
-            let giornatePerfette = 0;
-            for (let g = 0; g < 38; g++) {
-                // Almeno uno dei due gioca una partita facile o media
-                if (cal1[g] === 1 || cal2[g] === 1) giornatePerfette++;
-            }
+            let ok = 0;
+            for (let g = 0; g < 38; g++) { if (cal1[g] === 1 || cal2[g] === 1) ok++; }
 
-            const fmvCombo = (parseFloat(a1.fmv || a1.mv || 0) + parseFloat(a2.fmv || a2.mv || 0)) / 2;
-            const costCombo = parseInt(a1.budget_max || 1) + parseInt(a2.budget_max || 1);
-
-            strikerCombos.push({
-                a1: a1,
-                a2: a2,
-                giornateOk: giornatePerfette,
-                fmv: fmvCombo.toFixed(2),
-                cost: costCombo,
-                score: (giornatePerfette * 2) + (fmvCombo * 5)
-            });
+            strikerCombos.push({ a1, a2, ok, score: ok });
         }
     }
 
     strikerCombos.sort((a, b) => b.score - a.score);
-    const topStrikerCombos = strikerCombos.slice(0, 3);
+    const topStriker = strikerCombos.slice(0, 3);
 
     let sHtml = '';
-    if (topStrikerCombos.length === 0) {
-        sHtml = `<div class="alert alert-dark mb-0 small">Nessun attaccante sufficiente nel DB per calcolare abbinamenti.</div>`;
-    } else {
-        topStrikerCombos.forEach((c, idx) => {
-            sHtml += `
-                <div class="combo-card p-2 mb-2">
-                    <div class="d-flex justify-content-between align-items-center mb-1">
-                        <small class="badge bg-secondary">Coppia #${idx + 1}</small>
-                        <span class="small text-success fw-bold"><i class="fa-solid fa-coins me-1"></i>Prezzo stimato: ${c.cost} FM</span>
-                    </div>
-                    <div class="d-flex justify-content-between align-items-center text-white mb-2">
-                        <div>
-                            <strong class="advisor-player-link text-warning" onclick="caricaSchedaDaNome('${c.a1.nome.replace(/'/g, "\\'")}')">${c.a1.nome}</strong> <small class="text-muted">(${c.a1.squadra})</small>
-                            <span class="mx-1">+</span>
-                            <strong class="advisor-player-link text-warning" onclick="caricaSchedaDaNome('${c.a2.nome.replace(/'/g, "\\'")}')">${c.a2.nome}</strong> <small class="text-muted">(${c.a2.squadra})</small>
-                        </div>
-                    </div>
-                    <div class="d-flex gap-2 text-center">
-                        <span class="badge bg-success flex-fill py-1">⚽ Alternanza Bonus in ${c.giornateOk}/38 Giornate</span>
-                        <span class="badge bg-info text-dark flex-fill py-1">📊 Media FMV Combo: ${c.fmv}</span>
-                    </div>
-                </div>
-            `;
-        });
-    }
-    sBox.innerHTML = sHtml;
+    topStriker.forEach((c, idx) => {
+        sHtml += `
+            <div class="combo-card p-2 mb-2">
+                <small class="badge bg-secondary">Coppia #${idx + 1}</small>
+                <div class="small text-white my-1"><strong>${c.a1.nome}</strong> (${c.a1.squadra}) + <strong>${c.a2.nome}</strong> (${c.a2.squadra})</div>
+                <span class="badge bg-success py-1">⚽ Alternanza Bonus in ${c.ok}/38 Giornate</span>
+            </div>
+        `;
+    });
+    sBox.innerHTML = sHtml || '<div class="small text-muted">Carica attaccanti per vedere le coppie.</div>';
 }
 
-// ALGORITMO IA GARANTITO BILANCIATO SUI 4 RUOLI (P, D, C, A)
+// GENERATORE IA COMPLETO BILANCIATO
 function generaRosaIA(isShuffle = false) {
     const container = document.getElementById('aiSquadContainer');
     const recapBox = document.getElementById('calendarRecapBox');
@@ -1248,7 +1375,6 @@ function generaRosaIA(isShuffle = false) {
         let rolePool = disponibili.filter(p => p.ruolo === r).sort((a, b) => {
             const fmvA = parseFloat(a.fmv || a.mv || 0);
             const fmvB = parseFloat(b.fmv || b.mv || 0);
-
             const calA = getTeamStats(a.squadra).facili;
             const calB = getTeamStats(b.squadra).facili;
 
@@ -1259,7 +1385,6 @@ function generaRosaIA(isShuffle = false) {
                 scoreA += (Math.random() * 3.5);
                 scoreB += (Math.random() * 3.5);
             }
-
             return scoreB - scoreA;
         });
 
@@ -1268,14 +1393,12 @@ function generaRosaIA(isShuffle = false) {
 
         for (let i = 0; i < rolePool.length; i++) {
             if (formazioneConsigliata[r].length >= slotsNeeded) break;
-
             const p = rolePool[i];
             const realCost = Math.max(1, parseInt(p.budget_max || 1));
             const slotRimastiNelRuolo = slotsNeeded - formazioneConsigliata[r].length;
 
             if ((spesoNelRuolo + realCost + (slotRimastiNelRuolo - 1)) <= maxSpesaRuolo && 
                 (costoPrevistoTotale + realCost) <= budgetResiduoAttuale) {
-                
                 formazioneConsigliata[r].push({ player: p, cost: realCost });
                 spesoNelRuolo += realCost;
                 costoPrevistoTotale += realCost;
@@ -1290,7 +1413,6 @@ function generaRosaIA(isShuffle = false) {
                 if (formazioneConsigliata[r].length >= slotsNeeded) break;
                 const p = rimanentiEconomici[k];
                 const realCost = Math.max(1, parseInt(p.budget_max || 1));
-                
                 formazioneConsigliata[r].push({ player: p, cost: realCost });
                 costoPrevistoTotale += realCost;
             }
@@ -1312,8 +1434,6 @@ function generaRosaIA(isShuffle = false) {
     const labelsRuolo = { 'P': 'Portieri', 'D': 'Difensori', 'C': 'Centrocampisti', 'A': 'Attaccanti' };
     const badgeBg = { 'P': 'bg-warning text-dark', 'D': 'bg-primary', 'C': 'bg-info text-dark', 'A': 'bg-danger' };
 
-    let calStatsRole = { 'P': { f: 0, m: 0, d: 0 }, 'D': { f: 0, m: 0, d: 0 }, 'C': { f: 0, m: 0, d: 0 }, 'A': { f: 0, m: 0, d: 0 } };
-
     ['A', 'C', 'D', 'P'].forEach(r => {
         const list = formazioneConsigliata[r];
         if (list.length > 0) {
@@ -1324,12 +1444,6 @@ function generaRosaIA(isShuffle = false) {
             `;
             list.forEach(item => {
                 const p = item.player;
-                const cal = getTeamStats(p.squadra);
-
-                calStatsRole[r].f += cal.facili;
-                calStatsRole[r].m += cal.medie;
-                calStatsRole[r].d += cal.difficili;
-
                 html += `
                     <div class="suggested-player-badge mb-1 d-flex justify-content-between align-items-center">
                         <div>
@@ -1338,8 +1452,8 @@ function generaRosaIA(isShuffle = false) {
                             <small class="text-muted">(${p.squadra})</small>
                         </div>
                         <div>
-                            <span class="badge bg-success me-1" data-bs-toggle="tooltip" title="Prezzo Reale DB Excel">${item.cost} FM</span>
-                            <button class="btn btn-xs btn-outline-success p-0 px-1" onclick="prompPreso('${p.id}', '${p.nome.replace(/'/g, "\\'")}')" title="Prendi Subito"><i class="fa-solid fa-check"></i></button>
+                            <span class="badge bg-success me-1">${item.cost} FM</span>
+                            <button class="btn btn-xs btn-outline-success p-0 px-1" onclick="prompPreso('${p.id}', '${p.nome.replace(/'/g, "\\'")}')"><i class="fa-solid fa-check"></i></button>
                         </div>
                     </div>
                 `;
@@ -1350,31 +1464,6 @@ function generaRosaIA(isShuffle = false) {
 
     html += `</div>`;
     container.innerHTML = html;
-
-    let recapHtml = '';
-    ['P', 'D', 'C', 'A'].forEach(r => {
-        const countGiocatori = formazioneConsigliata[r].length;
-        if (countGiocatori > 0) {
-            const avgFacili = Math.round(calStatsRole[r].f / countGiocatori);
-            const avgMedie = Math.round(calStatsRole[r].m / countGiocatori);
-            const avgDifficili = Math.round(calStatsRole[r].d / countGiocatori);
-
-            recapHtml += `
-                <div class="col-md-3 col-6">
-                    <div class="p-2 border border-secondary rounded bg-dark text-center">
-                        <span class="badge ${badgeBg[r]} mb-1">${labelsRuolo[r]}</span>
-                        <div class="d-flex justify-content-center gap-2 mt-1">
-                            <span class="badge bg-success" data-bs-toggle="tooltip" title="Partite Facili / Abbordabili">🟢 ${avgFacili} Facili</span>
-                            <span class="badge bg-warning text-dark" data-bs-toggle="tooltip" title="Partite Medie / Insidiose">🟡 ${avgMedie} Medie</span>
-                            <span class="badge bg-danger" data-bs-toggle="tooltip" title="Big Match / Scontri Diretti">🔴 ${avgDifficili} Big</span>
-                        </div>
-                    </div>
-                </div>
-            `;
-        }
-    });
-
-    recapContent.innerHTML = recapHtml;
     recapBox.style.display = 'block';
 }
 
@@ -1386,17 +1475,20 @@ function caricaSchedaDaNome(nomeGiocatore) {
 }
 
 function apriDettagliGiocatore(player, event) {
-    if (event.target.closest('button') || event.target.closest('form') || event.target.closest('a')) {
-        return;
-    }
+    if (event.target.closest('button') || event.target.closest('form') || event.target.closest('a')) return;
 
     const modalEl = document.getElementById('playerDetailModal');
     let modal = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
-    
-    // Header
+
     document.getElementById('modalPlayerNome').textContent = player.nome;
     document.getElementById('modalPlayerSquadra').textContent = player.squadra;
+    document.getElementById('squadraPiazzatiNome').textContent = player.squadra;
     
+    // CALCOLO MAX BID DINAMICO (FUNZIONALITÀ 3)
+    const altriSlotMancanti = Math.max(0, slotMancantiAttuali - 1);
+    const maxBidDisponibile = Math.max(1, budgetResiduoAttuale - altriSlotMancanti);
+    document.getElementById('modalMaxBidCalculated').textContent = maxBidDisponibile + " FM";
+
     const roleBadge = document.getElementById('modalPlayerRuolo');
     roleBadge.textContent = player.ruolo;
     roleBadge.className = 'badge badge-role ' + (
@@ -1405,7 +1497,6 @@ function apriDettagliGiocatore(player, event) {
         player.ruolo === 'C' ? 'bg-info text-dark' : 'bg-danger'
     );
 
-    // Dati Calendario Squadra FantaLab
     document.getElementById('calSquadraNome').textContent = player.squadra;
     const cal = getTeamStats(player.squadra);
     document.getElementById('modalCalendarBadges').innerHTML = `
@@ -1414,7 +1505,6 @@ function apriDettagliGiocatore(player, event) {
         <div class="col-4"><span class="badge bg-danger w-100 py-2 fs-6">🔴 ${cal.difficili} Big Match</span></div>
     `;
 
-    // Valutazione Asta & Indici
     document.getElementById('modalPlayerFascia').textContent = player.fascia || 'ND';
     document.getElementById('modalPlayerQuo').textContent = player.quo || 0;
     document.getElementById('modalPlayerPma').textContent = player.pma || '-';
@@ -1422,7 +1512,6 @@ function apriDettagliGiocatore(player, event) {
     document.getElementById('modalPlayerAffidabilita').textContent = player.affidabilita || 0;
     document.getElementById('modalPlayerIntegrita').textContent = player.integrita || 0;
 
-    // Statistiche Rendimento
     document.getElementById('modalPlayerMV').textContent = player.mv ? parseFloat(player.mv).toFixed(2) : '0.00';
     document.getElementById('modalPlayerFMV').textContent = player.fmv ? parseFloat(player.fmv).toFixed(2) : '0.00';
     document.getElementById('modalPlayerFmvExp').textContent = player.fmv_exp ? parseFloat(player.fmv_exp).toFixed(2) : '0.00';
@@ -1431,7 +1520,6 @@ function apriDettagliGiocatore(player, event) {
     document.getElementById('modalPlayerMinuti').textContent = player.minuti || 0;
     document.getElementById('modalPlayerPtInf').textContent = player.pt_inf || 0;
 
-    // Bonus / Malus
     document.getElementById('modalPlayerGol').textContent = player.gol || 0;
     document.getElementById('modalPlayerAssist').textContent = player.assist || 0;
     document.getElementById('modalPlayerAmm').textContent = player.ammonizioni || 0;
@@ -1441,102 +1529,37 @@ function apriDettagliGiocatore(player, event) {
     document.getElementById('modalPlayerRigPar').textContent = player.rig_parati || 0;
     document.getElementById('modalPlayerGolSub').textContent = player.gol_subiti || 0;
 
-    // GENERATORE CONSIGLI E RICERCA ABBINAMENTI SQUADRA
-    const adviceBox = document.getElementById('modalPlayerAdvice');
+    const tattica = tatticheMap[player.squadra];
     let adviceHtml = '';
-    const noteLower = (player.note || '').toLowerCase();
-    const fmv = parseFloat(player.fmv || 0);
-    const gol = parseInt(player.gol || 0);
 
-    if (player.fascia === 'Top' || fmv > 7.8 || gol > 10) {
-        adviceHtml += `<strong>🔥 GIUDIZIO ASTA:</strong> Profilo TOP da 1° Slot. Vale investire fino a <strong>${player.budget_max || 50} FM</strong>. `;
-    } else if (fmv >= 6.8 || gol >= 5) {
-        adviceHtml += `<strong>⭐ GIUDIZIO ASTA:</strong> Ottimo 2°/3° Slot per garantire bonus regolari. Target: <strong>${player.budget_max || 20} FM</strong>. `;
-    } else {
-        adviceHtml += `<strong>🎯 GIUDIZIO ASTA:</strong> Giocatore di complemento / Scommessa a pochi crediti (1-${player.budget_max || 5} FM). `;
-    }
-
-    const teammates = allDatabasePlayers.filter(p => 
-        p.squadra === player.squadra && 
-        p.ruolo === player.ruolo && 
-        p.nome.toLowerCase() !== player.nome.toLowerCase()
-    );
-
-    if (teammates.length > 0) {
-        const teammateLinks = teammates.map(t => 
-            `<span class="advisor-player-link me-1" onclick="caricaSchedaDaNome('${t.nome.replace(/'/g, "\\'")}')"><i class="fa-solid fa-user me-1"></i>${t.nome} (${t.squadra})</span>`
-        ).join(', ');
-        adviceHtml += `<br><strong>👥 COPPIA SQUADRA CONSIGLIATA (${player.squadra}):</strong> Per la massima copertura reparto, prendilo insieme a: ${teammateLinks}.`;
-    } else {
-        adviceHtml += `<br><strong>👥 COPPIA SQUADRA:</strong> È l'unico profilo di spicco per la squadra (${player.squadra}) nel DB.`;
-    }
-
-    adviceBox.innerHTML = adviceHtml;
-
-    const googleBtn = document.getElementById('btnGoogleSearch');
-    googleBtn.href = 'https://www.google.com/search?q=' + encodeURIComponent('consigli fantacalcio ' + player.nome + ' ' + player.squadra);
-
-    // Badge / Tag Tattici
-    const tagsContainer = document.getElementById('modalPlayerTags');
-    tagsContainer.innerHTML = '';
-    const isPortiere = (player.ruolo === 'P');
-
-    const tagsMap = [
-        { key: 'titolarissimo', label: '🔄 Titolarissimo', class: 'border-success text-success' },
-        { key: 'modificatore', label: '🛡️ Modificatore', class: 'border-primary text-primary' },
-        { key: 'imbattibil', label: '🛡️ Imbattibilità', class: 'border-info text-info', portiereOnly: true },
-        { key: 'pararigori', label: '🧤 ParaRigori', class: 'border-warning text-warning', portiereOnly: true },
-        { key: 'rigoris', label: '⚽ Rigorista', class: 'border-warning text-warning', fieldOnly: true },
-        { key: 'tiratore', label: '🎯 Tiratore Punizioni', class: 'border-info text-info' },
-        { key: 'assistman', label: '👟 Assistman', class: 'border-info text-info' },
-        { key: 'tanti gol', label: '⚽ Tanti Gol', class: 'border-danger text-danger' },
-        { key: 'bonus', label: '🎁 Portatore Bonus', class: 'border-warning text-warning' },
-        { key: 'rischio infortuni', label: '🚑 Rischio Infortuni', class: 'border-danger text-danger' },
-        { key: 'subentrante', label: '🔀 Subentrante', class: 'border-secondary text-light' },
-        { key: 'scommessa', label: '🎰 Scommessa', class: 'border-purple text-warning' },
-        { key: 'incostante', label: '📉 Incostante', class: 'border-danger text-danger' },
-        { key: 'costante', label: '📈 Costante', class: 'border-success text-success' },
-        { key: 'cartellini', label: '🟨 Cartellini', class: 'border-warning text-warning' },
-        { key: 'coppa africa', label: '🌍 Coppa Africa', class: 'border-warning text-warning' },
-        { key: 'jolly', label: '🃏 Jolly Tattico', class: 'border-info text-info' }
-    ];
-
-    tagsMap.forEach(t => {
-        if (t.portiereOnly && !isPortiere) return;
-        if (t.fieldOnly && isPortiere) return;
-        if (noteLower.includes(t.key)) {
-            tagsContainer.innerHTML += `<span class="badge bg-dark border ${t.class}">${t.label}</span>`;
+    if (tattica) {
+        adviceHtml += `<strong>Mister: ${tattica.allenatore}</strong><br>`;
+        if (tattica.valorizzati && tattica.valorizzati[player.nome]) {
+            adviceHtml += `<span class="text-success fw-bold">📈 VALORIZZATO DAL MISTER:</span> ${tattica.valorizzati[player.nome]}<br>`;
+        } else if (tattica.penalizzati && tattica.penalizzati[player.nome]) {
+            adviceHtml += `<span class="text-warning fw-bold">⚠️ PENALIZZATO DAL MISTER:</span> ${tattica.penalizzati[player.nome]}<br>`;
         }
-    });
 
-    if (tagsContainer.innerHTML === '') {
-        tagsContainer.innerHTML = '<span class="text-muted small">Nessun tag speciale</span>';
+        document.getElementById('modalRigoristiSquadra').textContent = tattica.rigoristi ? tattica.rigoristi.join(', ') : '-';
+        document.getElementById('modalPunizioniSquadra').textContent = tattica.punizioni ? tattica.punizioni.join(', ') : '-';
+        document.getElementById('modalAngoliSquadra').textContent = tattica.angoli ? tattica.angoli.join(', ') : '-';
+        document.getElementById('modalBallottaggiBox').innerHTML = tattica.ballottaggi ? tattica.ballottaggi.map(b => `• ${b}`).join('<br>') : 'Nessun ballottaggio critico.';
     }
 
-    document.getElementById('modalPlayerNote').textContent = player.note || 'Nessuna nota aggiuntiva disponibile.';
+    document.getElementById('modalPlayerAdvice').innerHTML = adviceHtml;
+    document.getElementById('modalPlayerNote').textContent = player.note || 'Nessuna nota aggiuntiva.';
+    document.getElementById('btnGoogleSearch').href = 'https://www.google.com/search?q=' + encodeURIComponent('consigli fantacalcio ' + player.nome + ' ' + player.squadra);
 
     modal.show();
 }
 
 function simulaOfferta() {
-    const simInput = document.getElementById('simBidInput').value;
-    const bid = parseInt(simInput) || 0;
-    if (bid <= 0) {
-        document.getElementById('simResiduo').textContent = '-';
-        document.getElementById('simMedia').textContent = '-';
-        return;
-    }
+    const bid = parseInt(document.getElementById('simBidInput').value) || 0;
+    if (bid <= 0) return;
     const nuovoResiduo = budgetResiduoAttuale - bid;
-    const nuoviSlotMancanti = Math.max(0, slotMancantiAttuali - 1);
-    const nuovaMedia = nuoviSlotMancanti > 0 ? (nuovoResiduo / nuoviSlotMancanti).toFixed(1) : 0;
-    
-    const elResiduo = document.getElementById('simResiduo');
-    elResiduo.textContent = nuovoResiduo + " FM";
-    elResiduo.className = nuovoResiduo < 0 ? "text-danger fw-bold" : "text-success fw-bold";
-    
-    const elMedia = document.getElementById('simMedia');
-    elMedia.textContent = nuovaMedia + " FM";
-    elMedia.className = nuovaMedia < 2 ? "text-danger fw-bold" : "text-info fw-bold";
+    const nuoviSlot = Math.max(0, slotMancantiAttuali - 1);
+    document.getElementById('simResiduo').textContent = nuovoResiduo + " FM";
+    document.getElementById('simMedia').textContent = (nuoviSlot > 0 ? (nuovoResiduo / nuoviSlot).toFixed(1) : 0) + " FM";
 }
 
 function prompPreso(id, nome) {
@@ -1549,10 +1572,6 @@ function prompPreso(id, nome) {
 }
 
 document.addEventListener('DOMContentLoaded', function() {
-    const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');
-    tooltipTriggerList.forEach(el => new bootstrap.Tooltip(el));
-
-    // Esegui calcolo automatico degli abbinamenti all'avvio
     calcolaAbbinamentiTop();
 
     const searchInput = document.getElementById('searchInput');
@@ -1560,35 +1579,78 @@ document.addEventListener('DOMContentLoaded', function() {
     const rows = document.querySelectorAll('#playersTable tbody tr');
     let currentRole = 'all';
 
+    // SCORCIATOIA DA TASTIERA GLOBALE (FUNZIONALITÀ 1)
+    document.addEventListener('keydown', function(e) {
+        if ((e.key === 'f' || e.key === 'F' || e.key === '/') && document.activeElement !== searchInput && document.activeElement.tagName !== 'INPUT') {
+            e.preventDefault();
+            searchInput.focus();
+            searchInput.select();
+        }
+    });
+
     function filterTable() {
-        const term = searchInput.value.toLowerCase();
+        const val = searchInput.value.trim();
+        const parts = val.split(' ');
+        const lastPart = parts[parts.length - 1];
+        const isQuickBid = !isNaN(lastPart) && lastPart !== '' && parts.length > 1;
+        const term = isQuickBid ? parts.slice(0, -1).join(' ').toLowerCase() : val.toLowerCase();
+
         rows.forEach(row => {
-            if (row.children.length === 1) return;
             const text = row.textContent.toLowerCase();
             const role = row.getAttribute('data-role');
             const isFav = row.getAttribute('data-fav') === '1';
+            const isRigorista = row.getAttribute('data-rigorista') === '1';
+            const isPiazzato = row.getAttribute('data-piazzato') === '1';
+            const isValorizzato = row.getAttribute('data-valorizzato') === '1';
+            const isNascosto = row.getAttribute('data-nascosto') === '1';
+            const isGiovane = row.getAttribute('data-giovane') === '1';
 
             const matchSearch = text.includes(term);
             let matchRole = false;
 
-            if (currentRole === 'all') {
-                matchRole = true;
-            } else if (currentRole === 'fav') {
-                matchRole = isFav;
-            } else {
-                matchRole = (role === currentRole);
-            }
+            if (currentRole === 'all') matchRole = true;
+            else if (currentRole === 'fav') matchRole = isFav;
+            else if (currentRole === 'rigoristi') matchRole = isRigorista;
+            else if (currentRole === 'piazzati') matchRole = isPiazzato;
+            else if (currentRole === 'valorizzati') matchRole = isValorizzato;
+            else if (currentRole === 'nascosti') matchRole = isNascosto;
+            else if (currentRole === 'giovani') matchRole = isGiovane;
+            else matchRole = (role === currentRole);
 
             row.style.display = (matchSearch && matchRole) ? '' : 'none';
         });
     }
 
+    // GESTIONE QUICK BID SU TASTO INVIO (FUNZIONALITÀ 1)
+    searchInput.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+            const val = searchInput.value.trim();
+            const parts = val.split(' ');
+            const lastPart = parts[parts.length - 1];
+
+            if (!isNaN(lastPart) && lastPart !== '' && parts.length > 1) {
+                const searchName = parts.slice(0, -1).join(' ').toLowerCase();
+                const prezzo = parseInt(lastPart);
+
+                const matchedPlayer = allDatabasePlayers.find(p => p.nome.toLowerCase().includes(searchName) && p.stato !== 'preso');
+                if (matchedPlayer) {
+                    if (confirm(`Confermi l'acquisto QUICK-BID di ${matchedPlayer.nome} a ${prezzo} FM?`)) {
+                        document.getElementById('presoPlayerId').value = matchedPlayer.id;
+                        document.getElementById('presoPrezzo').value = prezzo;
+                        document.getElementById('formPreso').submit();
+                    }
+                } else {
+                    alert('Nessun calciatore disponibile trovato con questo nome!');
+                }
+            }
+        }
+    });
+
     searchInput.addEventListener('input', filterTable);
 
     filterBtns.forEach(btn => {
         btn.addEventListener('click', function() {
-            filterBtns.forEach(b => b.classList.remove('active', 'btn-warning', 'btn-primary', 'btn-info', 'btn-danger'));
-            filterBtns.forEach(b => b.classList.add('btn-outline-light'));
+            filterBtns.forEach(b => b.classList.remove('active'));
             this.classList.add('active');
             currentRole = this.getAttribute('data-role');
             filterTable();
@@ -1597,61 +1659,34 @@ document.addEventListener('DOMContentLoaded', function() {
 
     document.getElementById('ajaxUploadForm').addEventListener('submit', function(e) {
         e.preventDefault();
-
-        const fileInput = document.getElementById('fileInput');
-        const file = fileInput.files[0];
+        const file = document.getElementById('fileInput').files[0];
         if (!file) return;
 
         const formData = new FormData();
         formData.append('file_upload', file);
 
         const xhr = new XMLHttpRequest();
-        const progressBar = document.getElementById('progressBar');
-        const progressBox = document.getElementById('progressBox');
-        const statusMsg = document.getElementById('uploadStatus');
-        const btnSubmit = document.getElementById('btnUploadSubmit');
-
-        progressBox.style.display = 'block';
-        progressBar.style.width = '0%';
-        progressBar.textContent = '0%';
-        statusMsg.className = 'small fw-bold text-info';
-        statusMsg.textContent = 'Caricamento in corso...';
-        btnSubmit.disabled = true;
+        document.getElementById('progressBox').style.display = 'block';
 
         xhr.upload.addEventListener('progress', function(e) {
             if (e.lengthComputable) {
                 const percent = Math.round((e.loaded / e.total) * 100);
-                progressBar.style.width = percent + '%';
-                progressBar.textContent = percent + '%';
+                document.getElementById('progressBar').style.width = percent + '%';
+                document.getElementById('progressBar').textContent = percent + '%';
             }
         });
 
         xhr.addEventListener('load', function() {
-            btnSubmit.disabled = false;
             try {
                 const res = JSON.parse(xhr.responseText);
-                if (xhr.status === 200 && res.success) {
-                    statusMsg.className = 'small fw-bold text-success';
-                    statusMsg.textContent = res.message + ' Ricaricamento in corso...';
-                    setTimeout(() => window.location.reload(), 1200);
-                } else {
-                    statusMsg.className = 'small fw-bold text-danger';
-                    statusMsg.textContent = res.message || 'Errore durante l\'upload.';
-                }
-            } catch (err) {
-                statusMsg.className = 'small fw-bold text-danger';
-                statusMsg.textContent = 'Errore imprevisto nella risposta del server.';
-                console.error(xhr.responseText);
-            }
+                if (res.success) {
+                    alert(res.message);
+                    window.location.reload();
+                } else alert(res.message);
+            } catch (err) { alert('Errore nell\'upload'); }
         });
 
-        xhr.addEventListener('error', function() {
-            btnSubmit.disabled = false;
-            statusMsg.className = 'small fw-bold text-danger';
-            statusMsg.textContent = 'Errore di connessione di rete.';
-        });
-
-        xhr.open('POST', 'index.php?lega=' + currentLega + '&action=upload_file', true);
+        xhr.open('POST', 'index.php?lega=<?php echo $currentLega; ?>&action=upload_file', true);
         xhr.send(formData);
     });
 });

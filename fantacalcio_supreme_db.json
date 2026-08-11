@@ -3,10 +3,10 @@
         "nome": "Lega 1",
         "budget_iniziale": 500,
         "budget_ruoli": {
-            "P": 40,
-            "D": 80,
-            "C": 150,
-            "A": 230
+            "P": 55,
+            "D": 105,
+            "C": 115,
+            "A": 225
         },
         "giocatori": [
             {
