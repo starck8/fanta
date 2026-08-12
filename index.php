@@ -5,11 +5,9 @@
 
 // Gestione percorso dinamico: rileva se siamo su Windows (XAMPP) o Linux (Render)
 if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
-    // Percorso per XAMPP su Windows
     $tmpDir = sys_get_temp_dir();
     $dataFile = $tmpDir . DIRECTORY_SEPARATOR . 'fantacalcio_supreme_db.json';
 } else {
-    // Percorso per Render / Linux
     $dataFile = '/tmp/fantacalcio_supreme_db.json';
 }
 
@@ -51,6 +49,37 @@ if (!is_array($data)) {
 
 $currentLega = $_GET['lega'] ?? 'lega1';
 if (!array_key_exists($currentLega, $data)) { $currentLega = 'lega1'; }
+
+// EXPORT BACKUP IN FORMATO JSON / CSV
+if (isset($_GET['action']) && $_GET['action'] === 'export_backup') {
+    $type = $_GET['type'] ?? 'json';
+    if ($type === 'csv') {
+        header('Content-Type: text/csv; charset=utf-8');
+        header('Content-Disposition: attachment; filename=fantastrategy_export_' . date('Ymd_His') . '.csv');
+        $output = fopen('php://output', 'w');
+        fputcsv($output, ['Nome', 'Ruolo', 'Squadra', 'Fascia', 'Stato', 'Prezzo Acquisto', 'Budget Max', 'FMV', 'Note']);
+        foreach ($data[$currentLega]['giocatori'] as $p) {
+            fputcsv($output, [
+                $p['nome'] ?? '',
+                $p['ruolo'] ?? '',
+                $p['squadra'] ?? '',
+                $p['fascia'] ?? '',
+                $p['stato'] ?? 'da_comprate',
+                $p['prezzo_acquisto'] ?? 0,
+                $p['budget_max'] ?? 1,
+                $p['fmv'] ?? 0,
+                $p['note'] ?? ''
+            ]);
+        }
+        fclose($output);
+        exit;
+    } else {
+        header('Content-Type: application/json; charset=utf-8');
+        header('Content-Disposition: attachment; filename=fantastrategy_backup_' . date('Ymd_His') . '.json');
+        echo json_encode($data, JSON_PRETTY_PRINT);
+        exit;
+    }
+}
 
 // Helper per pulire le intestazioni
 function cleanHeaderStr($str) {
@@ -267,7 +296,7 @@ $tatticheSquadre = [
         'punizioni' => ['Vlasic', 'Oristanio'],
         'angoli' => ['Vlasic', 'Oristanio', 'Ilic'],
         'ballottaggi' => ['Oristanio (51%) vs Adams C. (49%)', 'Comuzzo (51%) vs Comert (49%)', 'Fitz-Jim (51%) vs Gineitis (49%)'],
-        'valorizzati' => ['Simeone' => 'Utile nel gioco aereo per gli esterni', 'Vlasic' => 'Svaria tra le linee'],
+        'valorizzati' => ['Simeone' => 'Utile nel gioco aereo per gli esterni', 'Vlasic' => 'Svaria tra le lines'],
         'penalizzati' => ['Biraghi' => 'Soffre la difesa alta'],
         'nascosti' => ['Oristanio'],
         'giovani' => ['Njie']
@@ -632,9 +661,41 @@ $slotMancanti = [
 $totaleSlotMancanti = array_sum($slotMancanti);
 $mediaCreditiPerSlot = $totaleSlotMancanti > 0 ? round($budgetResiduo / $totaleSlotMancanti, 1) : 0;
 
+// CALCOLO SOGLIA DI SALVAGUARDIA CREDITI
+$creditiRiservatiSogliaMinima = max(0, $totaleSlotMancanti - 1);
+$maxCreditiRilancioAssoluto = max(1, $budgetResiduo - $creditiRiservatiSogliaMinima);
+$isZonaRossaBudget = ($budgetResiduo <= $totaleSlotMancanti && $totaleSlotMancanti > 0);
+
+// GESTIONE SMART RE-PAIRING / ALLERTE COPPIE
 $aiAdviceList = [];
 if (array_sum($slotPresi) === 0) {
     $aiAdviceList[] = ["type" => "info", "msg" => "Asta appena iniziata! Mantieni la calma e focalizzati sui top target."];
+}
+
+if ($isZonaRossaBudget) {
+    $aiAdviceList[] = ["type" => "danger", "msg" => "🚨 <strong>ALLERTA BUDGET CRITICO:</strong> Hai esattamente {$budgetResiduo} FM per {$totaleSlotMancanti} slot mancanti! Puoi fare solo acquisti a 1 FM."];
+}
+
+// Analisi Coppie Interrotte / Giocatori Presi da Avversari
+foreach ($giocatoriCampo as $rKey => $listaPresi) {
+    foreach ($listaPresi as $pPreso) {
+        $sq = $pPreso['squadra'];
+        $compagniNonPresi = array_filter($players, fn($x) => $x['squadra'] === $sq && $x['ruolo'] === $rKey && $x['id'] !== $pPreso['id']);
+        
+        foreach ($compagniNonPresi as $compagno) {
+            if ($compagno['stato'] === 'perso') {
+                $sostitutiLiberi = array_filter($players, fn($x) => $x['ruolo'] === $rKey && $x['squadra'] !== $sq && $x['stato'] === 'da_comprate');
+                usort($sostitutiLiberi, fn($a, $b) => ($b['fmv'] ?? 0) <=> ($a['fmv'] ?? 0));
+                $migliorSostituto = $sostitutiLiberi[0]['nome'] ?? 'un nuovo titolare';
+                $sqSostituto = $sostitutiLiberi[0]['squadra'] ?? '';
+
+                $aiAdviceList[] = [
+                    "type" => "danger",
+                    "msg" => "⚠️ <strong>ALLERTA COPPIE:</strong> Hai acquistato <strong>{$pPreso['nome']}</strong> ma la sua riserva <strong>{$compagno['nome']}</strong> è stata presa da un rivale! <br>💡 <em>Consiglio IA:</em> Virare subito su <strong>$migliorSostituto ($sqSostituto)</strong> per completare la rotazione!"
+                ];
+            }
+        }
+    }
 }
 
 foreach (['P' => 'Portieri', 'D' => 'Difensori', 'C' => 'Centrocampisti', 'A' => 'Attaccanti'] as $rKey => $rLabel) {
@@ -687,15 +748,58 @@ $roleBadges = ['P' => 'bg-warning text-dark', 'D' => 'bg-primary', 'C' => 'bg-in
         .combo-card { background: #0b172e; border: 1px solid #1c3866; border-radius: 10px; transition: transform 0.2s; }
         .combo-card:hover { border-color: #ffc107; transform: translateY(-2px); }
         .tactical-badge { font-size: 0.72rem; padding: 3px 7px; border-radius: 6px; margin-right: 3px; font-weight: bold; }
+
+        /* MODALITÀ ASTA VELOCE UI High-Density */
+        body.fast-auction-mode .toggle-hide-fast { display: none !important; }
+        body.fast-auction-mode .table-custom td, body.fast-auction-mode .table-custom th { padding: 4px 8px !important; font-size: 0.8rem !important; }
+        body.fast-auction-mode .note-text { display: none !important; }
+
+        /* ANIMAZIONE E STILI PROMEMORIA BACKUP INTELLIGENTE */
+        @keyframes pulse-backup {
+            0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 193, 7, 0.8); }
+            70% { transform: scale(1.05); box-shadow: 0 0 0 10px rgba(255, 193, 7, 0); }
+            100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 193, 7, 0); }
+        }
+        .btn-backup-alert {
+            animation: pulse-backup 1.5s infinite;
+            background-color: #ffc107 !important;
+            color: #000 !important;
+            font-weight: bold !important;
+            border-color: #ffc107 !important;
+        }
+        #backupTimerBanner {
+            background: linear-gradient(90deg, #12213d 0%, #1e3a6e 100%);
+            border-bottom: 2px solid #ffc107;
+            font-size: 0.85rem;
+        }
     </style>
 </head>
 <body>
 
+<!-- BANNER NOTIFICA BACKUP AUTOMATICO -->
+<div id="backupTimerBanner" class="py-1 px-3 text-center text-warning fw-bold d-flex align-items-center justify-content-center gap-2" style="display: none !important;">
+    <i class="fa-solid fa-triangle-exclamation text-warning fs-6"></i>
+    <span id="backupBannerText">PROMEMORIA ASTA: Sono trascorsi 15 minuti dall'ultimo salvataggio o hai registrato nuovi acquisti. Fai un backup per non rischiare di perdere dati!</span>
+    <a href="index.php?lega=<?php echo $currentLega; ?>&action=export_backup&type=json" class="btn btn-xs btn-warning text-dark fw-bold ms-2 px-2 py-0" onclick="resetBackupTimer()"><i class="fa-solid fa-download me-1"></i> Salva Ora</a>
+</div>
+
+<!-- NAVBAR CON PULSANTI EXPORT BACKUP, UNDO E MODALITÀ ASTA VELOCE -->
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark border-bottom border-secondary sticky-top shadow">
     <div class="container-fluid px-4">
         <a class="navbar-brand fw-bold text-warning fs-4" href="#"><i class="fa-solid fa-crown me-2"></i>FantaStrategy LIVE ENGINE</a>
-        <div class="d-flex align-items-center gap-2">
-            <span class="badge bg-secondary"><?php echo count($players); ?> Calciatori in Database</span>
+        <div class="d-flex align-items-center gap-2 flex-wrap">
+            <span class="badge bg-secondary"><?php echo count($players); ?> Calciatori</span>
+            
+            <!-- TASTO ANNULLA ULTIMA AZIONE (UNDO) -->
+            <button id="btnUndoAction" class="btn btn-sm btn-outline-warning fw-bold d-none" onclick="eseguiUndo()"><i class="fa-solid fa-rotate-left me-1"></i> Annulla Ultimo Clic</button>
+
+            <!-- TOGGLE VISTA ASTA VELOCE -->
+            <button class="btn btn-sm btn-info fw-bold text-dark" onclick="toggleFastMode()"><i class="fa-solid fa-bolt me-1"></i> <span id="fastModeLabel">Vista Veloce</span></button>
+
+            <!-- TASTI DI EXPORT BACKUP -->
+            <a id="btnExportJson" href="index.php?lega=<?php echo $currentLega; ?>&action=export_backup&type=json" class="btn btn-sm btn-success fw-bold" onclick="resetBackupTimer()"><i class="fa-solid fa-download me-1"></i> Scarica JSON</a>
+            <a href="index.php?lega=<?php echo $currentLega; ?>&action=export_backup&type=csv" class="btn btn-sm btn-outline-success fw-bold"><i class="fa-solid fa-file-csv me-1"></i> Esporta CSV</a>
+            
             <button class="btn btn-sm btn-outline-warning" data-bs-toggle="modal" data-bs-target="#importModal"><i class="fa-solid fa-file-excel me-1"></i> Carica JSON/Excel</button>
             <form method="POST" style="display:inline;" onsubmit="return confirm('Sei sicuro di voler svuotare interamente il database dei calciatori?');">
                 <input type="hidden" name="action" value="clear_database">
@@ -724,12 +828,18 @@ $roleBadges = ['P' => 'bg-warning text-dark', 'D' => 'bg-primary', 'C' => 'bg-in
                         <small class="text-muted"><?php echo array_sum($slotPresi); ?> / 25 Acquistati</small>
                     </div>
                 </div>
+
+                <!-- ALERT ZONA ROSSA CREDITI NEL KPI -->
                 <div class="col-md-3">
-                    <div class="card card-custom p-3 kpi-card border-success">
-                        <small class="text-muted text-uppercase fw-bold">Budget Residuo</small>
-                        <h3 class="m-0 text-success fw-bold"><?php echo $budgetResiduo; ?> <small class="fs-6">FM</small></h3>
+                    <div class="card card-custom p-3 kpi-card <?php echo $isZonaRossaBudget ? 'border-danger bg-danger text-white' : 'border-success'; ?>">
+                        <small class="text-uppercase fw-bold <?php echo $isZonaRossaBudget ? 'text-white' : 'text-muted'; ?>">Budget Residuo</small>
+                        <h3 class="m-0 fw-bold <?php echo $isZonaRossaBudget ? 'text-white' : 'text-success'; ?>"><?php echo $budgetResiduo; ?> <small class="fs-6">FM</small></h3>
+                        <?php if ($totaleSlotMancanti > 0): ?>
+                            <small class="<?php echo $isZonaRossaBudget ? 'text-white fw-bold' : 'text-warning'; ?>">Max 1 Rilancio: <strong><?php echo $maxCreditiRilancioAssoluto; ?> FM</strong></small>
+                        <?php endif; ?>
                     </div>
                 </div>
+
                 <div class="col-md-3">
                     <div class="card card-custom p-3 kpi-card">
                         <small class="text-muted text-uppercase fw-bold">Media / Slot</small>
@@ -768,7 +878,7 @@ $roleBadges = ['P' => 'bg-warning text-dark', 'D' => 'bg-primary', 'C' => 'bg-in
     </div>
 
     <!-- ALGORITMO ABBINAMENTI STRATEGICI -->
-    <div class="row g-4 mb-4">
+    <div class="row g-4 mb-4 toggle-hide-fast">
         <div class="col-12">
             <div class="card card-custom p-3 border-info shadow">
                 <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3 border-bottom border-secondary pb-2">
@@ -802,7 +912,7 @@ $roleBadges = ['P' => 'bg-warning text-dark', 'D' => 'bg-primary', 'C' => 'bg-in
     </div>
 
     <!-- GENERATORE SQUADRA IA -->
-    <div class="row g-4 mb-4">
+    <div class="row g-4 mb-4 toggle-hide-fast">
         <div class="col-12">
             <div class="card ai-generator-card p-3 shadow">
                 <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3 border-bottom border-secondary pb-2">
@@ -834,7 +944,7 @@ $roleBadges = ['P' => 'bg-warning text-dark', 'D' => 'bg-primary', 'C' => 'bg-in
     </div>
 
     <!-- CAMPO TATTICO & BUDGET RUOLI -->
-    <div class="row g-4 mb-4">
+    <div class="row g-4 mb-4 toggle-hide-fast">
         <div class="col-lg-7">
             <div class="card card-custom p-3 h-100">
                 <h5 class="text-warning mb-2"><i class="fa-solid fa-futbol me-2"></i>Rosa Acquistata sul Campo</h5>
@@ -921,26 +1031,36 @@ $roleBadges = ['P' => 'bg-warning text-dark', 'D' => 'bg-primary', 'C' => 'bg-in
         </div>
     </div>
 
-    <!-- MAIN CONTENT: TABELLA FULL-WIDTH CON FILTRI TATTICI -->
+    <!-- MAIN CONTENT: TABELLA FULL-WIDTH CON FILTRI TATTICI E FASCE -->
     <div class="row g-4">
         <div class="col-12">
             <div class="card card-custom p-3">
                 <div class="row g-2 mb-3">
-                    <div class="col-md-4">
+                    <div class="col-md-3">
                         <div class="input-group input-group-sm">
                             <span class="input-group-text bg-dark border-secondary"><i class="fa-solid fa-magnifying-glass"></i></span>
-                            <input type="text" id="searchInput" class="form-control border-secondary" placeholder="Cerca calciatore, squadra, tag o Quick-Bid (es. Barella 42)... (Premere 'F' o '/' per cercare)">
+                            <input type="text" id="searchInput" class="form-control border-secondary" placeholder="Cerca calciatore o Quick-Bid (es. Barella 42)... (Premi 'F' o '/')">
                         </div>
                     </div>
-                    <div class="col-md-8 d-flex gap-1 justify-content-md-end flex-wrap">
+                    
+                    <!-- BARRA FILTRI RAPIDI PER RUOLO, FASCIA E STATO -->
+                    <div class="col-md-9 d-flex gap-1 justify-content-md-end flex-wrap">
                         <button class="btn btn-sm btn-outline-light filter-btn active" data-role="all">Tutti</button>
+                        <button class="btn btn-sm btn-outline-success filter-btn" data-role="liberi"><i class="fa-solid fa-eye me-1"></i> Solo Liberi</button>
                         <button class="btn btn-sm btn-outline-warning filter-btn" data-role="fav"><i class="fa-solid fa-star text-warning me-1"></i> Preferiti</button>
+                        <div class="vr mx-1"></div>
+                        <!-- FILTRI FASCIA EXCEL -->
+                        <button class="btn btn-sm btn-outline-light filter-btn" data-role="f_top">⭐ Top</button>
+                        <button class="btn btn-sm btn-outline-light filter-btn" data-role="f_1">1ª Fascia</button>
+                        <button class="btn btn-sm btn-outline-light filter-btn" data-role="f_2">2ª Fascia</button>
+                        <button class="btn btn-sm btn-outline-light filter-btn" data-role="f_3">3ª Fascia</button>
+                        <div class="vr mx-1"></div>
+                        <!-- FILTRI TATTICI -->
                         <button class="btn btn-sm btn-outline-danger filter-btn" data-role="rigoristi">⚽ Rigoristi</button>
                         <button class="btn btn-sm btn-outline-info filter-btn" data-role="piazzati">🎯 Piazzati</button>
                         <button class="btn btn-sm btn-outline-success filter-btn" data-role="valorizzati">📈 Valorizzati</button>
-                        <button class="btn btn-sm btn-outline-secondary filter-btn" data-role="nascosti">🕵️ Nascosti</button>
-                        <button class="btn btn-sm btn-outline-warning filter-btn" data-role="giovani">👶 Giovani</button>
                         <div class="vr mx-1"></div>
+                        <!-- FILTRI RUOLO -->
                         <button class="btn btn-sm btn-outline-warning filter-btn" data-role="P">P</button>
                         <button class="btn btn-sm btn-outline-primary filter-btn" data-role="D">D</button>
                         <button class="btn btn-sm btn-outline-info filter-btn" data-role="C">C</button>
@@ -982,6 +1102,10 @@ $roleBadges = ['P' => 'bg-warning text-dark', 'D' => 'bg-primary', 'C' => 'bg-in
                                     $isNascosto = $tattica && in_array($p['nome'], $tattica['nascosti']);
                                     $isGiovane = $tattica && in_array($p['nome'], $tattica['giovani']);
 
+                                    // COMPAGNI DI REPARTO LIBERI IN SQUADRA
+                                    $compagniRepartoLiberi = array_filter($players, fn($x) => $x['squadra'] === $squadra && $x['ruolo'] === $p['ruolo'] && $x['id'] !== $p['id'] && ($x['stato'] ?? '') === 'da_comprate');
+                                    $hasCompagniLiberi = count($compagniRepartoLiberi) > 0;
+
                                     $rowClass = '';
                                     if (($p['stato'] ?? '') === 'preso') $rowClass = 'player-preso';
                                     if (($p['stato'] ?? '') === 'perso') $rowClass = 'player-perso';
@@ -1006,6 +1130,8 @@ $roleBadges = ['P' => 'bg-warning text-dark', 'D' => 'bg-primary', 'C' => 'bg-in
                                 ?>
                                     <tr class="<?php echo $rowClass; ?>" 
                                         data-role="<?php echo $p['ruolo']; ?>" 
+                                        data-fascia="<?php echo strtolower(trim($p['fascia'] ?? '')); ?>"
+                                        data-stato="<?php echo $p['stato'] ?? 'da_comprate'; ?>"
                                         data-fav="<?php echo $isFav ? '1' : '0'; ?>"
                                         data-rigorista="<?php echo $isRigorista ? '1' : '0'; ?>"
                                         data-piazzato="<?php echo $isPiazzato ? '1' : '0'; ?>"
@@ -1034,7 +1160,12 @@ $roleBadges = ['P' => 'bg-warning text-dark', 'D' => 'bg-primary', 'C' => 'bg-in
                                         </td>
                                         <td>
                                             <div class="mb-1">
-                                                <!-- BADGE TATTICI NUOVI -->
+                                                <!-- BADGE COPPIA LIBERA -->
+                                                <?php if ($hasCompagniLiberi): ?>
+                                                    <span class="badge bg-dark border border-warning text-warning tactical-badge" data-bs-toggle="tooltip" title="<?php echo count($compagniRepartoLiberi); ?> compagni di reparto liberi nel DB">🔗 COPPIA DISPONIBILE</span>
+                                                <?php endif; ?>
+
+                                                <!-- BADGE TATTICI -->
                                                 <?php if ($isRigorista): ?><span class="badge bg-danger tactical-badge">⚽ RIGORISTA</span><?php endif; ?>
                                                 <?php if ($isPiazzato): ?><span class="badge bg-info text-dark tactical-badge">🎯 PIAZZATI</span><?php endif; ?>
                                                 <?php if ($isValorizzato): ?><span class="badge bg-success tactical-badge">📈 VALORIZZATO</span><?php endif; ?>
@@ -1060,7 +1191,7 @@ $roleBadges = ['P' => 'bg-warning text-dark', 'D' => 'bg-primary', 'C' => 'bg-in
                                         <td><?php echo $indexBadge; ?></td>
                                         <td class="text-center" onclick="event.stopPropagation();">
                                             <?php if (($p['stato'] ?? '') === 'preso'): ?>
-                                                <form method="POST" style="display:inline;">
+                                                <form method="POST" style="display:inline;" onsubmit="registraAzioneUndo('<?php echo $p['id']; ?>', 'da_comprate')">
                                                     <input type="hidden" name="action" value="update_status">
                                                     <input type="hidden" name="player_id" value="<?php echo $p['id']; ?>">
                                                     <input type="hidden" name="status" value="da_comprate">
@@ -1069,7 +1200,7 @@ $roleBadges = ['P' => 'bg-warning text-dark', 'D' => 'bg-primary', 'C' => 'bg-in
                                             <?php else: ?>
                                                 <div class="btn-group btn-group-sm">
                                                     <button type="button" class="btn btn-sm btn-outline-success" onclick="prompPreso('<?php echo $p['id']; ?>', '<?php echo htmlspecialchars($p['nome'], ENT_QUOTES); ?>')"><i class="fa-solid fa-check"></i> Preso</button>
-                                                    <form method="POST" style="display:inline;">
+                                                    <form method="POST" style="display:inline;" onsubmit="registraAzioneUndo('<?php echo $p['id']; ?>', 'da_comprate')">
                                                         <input type="hidden" name="action" value="update_status">
                                                         <input type="hidden" name="player_id" value="<?php echo $p['id']; ?>">
                                                         <input type="hidden" name="status" value="perso">
@@ -1096,7 +1227,7 @@ $roleBadges = ['P' => 'bg-warning text-dark', 'D' => 'bg-primary', 'C' => 'bg-in
     </div>
 </div>
 
-<!-- MODAL SCHEDA DETTAGLIATA GIOCATORE CON TUTTE LE STATISTICHE EXCEL E DATI TATTICI -->
+<!-- MODAL SCHEDA DETTAGLIATA GIOCATORE -->
 <div class="modal fade" id="playerDetailModal" tabindex="-1">
     <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content card-custom border-warning">
@@ -1112,13 +1243,19 @@ $roleBadges = ['P' => 'bg-warning text-dark', 'D' => 'bg-primary', 'C' => 'bg-in
             </div>
             <div class="modal-body">
 
-                <!-- MAX BID ALERT DINAMICO (FUNZIONALITÀ 3) -->
+                <!-- MAX BID ALERT DINAMICO -->
                 <div class="alert alert-danger d-flex align-items-center justify-content-between p-2 mb-3 border-danger bg-dark">
                     <div>
                         <i class="fa-solid fa-triangle-exclamation text-danger fs-4 me-2"></i>
                         <span class="fw-bold text-white small">Soglia Max Rilancio Sicuro per questo Giocatore:</span>
                     </div>
                     <span id="modalMaxBidCalculated" class="badge bg-danger fs-6 fw-bold">0 FM</span>
+                </div>
+
+                <!-- MODULO COMPAGNI DI REPARTO NELLA STESSA SQUADRA -->
+                <div id="modalCompagniBox" class="p-2 border border-warning rounded bg-dark mb-3" style="display:none;">
+                    <h6 class="text-warning fw-bold mb-1 small"><i class="fa-solid fa-people-arrows me-1"></i> Compagni di Reparto Disponibili nel DB (<span id="modalSquadraRepartoNome"></span>)</h6>
+                    <div id="modalCompagniList" class="d-flex flex-wrap gap-2 pt-1"></div>
                 </div>
 
                 <!-- 1. FANTA-ADVICE & ANALISI TATTICA -->
@@ -1247,11 +1384,18 @@ $roleBadges = ['P' => 'bg-warning text-dark', 'D' => 'bg-primary', 'C' => 'bg-in
     </div>
 </div>
 
-<form id="formPreso" method="POST" style="display:none;">
+<form id="formPreso" method="POST" style="display:none;" onsubmit="registraAzioneUndo(document.getElementById('presoPlayerId').value, 'da_comprate')">
     <input type="hidden" name="action" value="update_status">
     <input type="hidden" name="player_id" id="presoPlayerId">
     <input type="hidden" name="status" value="preso">
     <input type="hidden" name="prezzo_acquisto" id="presoPrezzo">
+</form>
+
+<form id="formUndo" method="POST" style="display:none;">
+    <input type="hidden" name="action" value="update_status">
+    <input type="hidden" name="player_id" id="undoPlayerId">
+    <input type="hidden" name="status" id="undoStatus">
+    <input type="hidden" name="prezzo_acquisto" value="0">
 </form>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
@@ -1263,6 +1407,65 @@ const budgetResiduoAttuale = <?php echo $budgetResiduo; ?>;
 const slotMancantiAttuali = <?php echo $totaleSlotMancanti; ?>;
 const slotMancantiPerRuolo = <?php echo json_encode($slotMancanti, JSON_UNESCAPED_UNICODE); ?>;
 const budgetRuoliTarget = <?php echo json_encode($budgetRuoli, JSON_UNESCAPED_UNICODE); ?>;
+
+// GESTIONE UNDO (ANNULLA ULTIMA AZIONE)
+function registraAzioneUndo(playerId, oldStatus) {
+    sessionStorage.setItem('fanta_undo_player_id', playerId);
+    sessionStorage.setItem('fanta_undo_status', oldStatus);
+}
+
+function controllaPulsanteUndo() {
+    const uId = sessionStorage.getItem('fanta_undo_player_id');
+    const uBtn = document.getElementById('btnUndoAction');
+    if (uId && uBtn) {
+        uBtn.classList.remove('d-none');
+    }
+}
+
+function eseguiUndo() {
+    const uId = sessionStorage.getItem('fanta_undo_player_id');
+    const uStatus = sessionStorage.getItem('fanta_undo_status') || 'da_comprate';
+    if (uId) {
+        document.getElementById('undoPlayerId').value = uId;
+        document.getElementById('undoStatus').value = uStatus;
+        sessionStorage.removeItem('fanta_undo_player_id');
+        sessionStorage.removeItem('fanta_undo_status');
+        document.getElementById('formUndo').submit();
+    }
+}
+
+// TOGGLE ASTA VELOCE UI
+function toggleFastMode() {
+    document.body.classList.toggle('fast-auction-mode');
+    const isFast = document.body.classList.contains('fast-auction-mode');
+    localStorage.setItem('fanta_fast_mode', isFast ? '1' : '0');
+    document.getElementById('fastModeLabel').textContent = isFast ? 'Vista Completa' : 'Vista Veloce';
+}
+
+// GESTIONE PROMEMORIA BACKUP VISIVO INTELLIGENTE
+let lastBackupTimestamp = localStorage.getItem('fanta_last_backup_time') || Date.now();
+const BACKUP_INTERVAL_MINUTES = 15;
+
+function checkBackupTimer() {
+    const now = Date.now();
+    const elapsedMinutes = Math.floor((now - lastBackupTimestamp) / 60000);
+    const banner = document.getElementById('backupTimerBanner');
+    const jsonBtn = document.getElementById('btnExportJson');
+
+    if (elapsedMinutes >= BACKUP_INTERVAL_MINUTES) {
+        if (banner) banner.style.setProperty('display', 'flex', 'important');
+        if (jsonBtn) jsonBtn.classList.add('btn-backup-alert');
+    } else {
+        if (banner) banner.style.setProperty('display', 'none', 'important');
+        if (jsonBtn) jsonBtn.classList.remove('btn-backup-alert');
+    }
+}
+
+function resetBackupTimer() {
+    lastBackupTimestamp = Date.now();
+    localStorage.setItem('fanta_last_backup_time', lastBackupTimestamp);
+    checkBackupTimer();
+}
 
 function getTeamStats(teamCode) {
     const cal = teamCalendarsMap[teamCode] || Array(38).fill(2);
@@ -1364,7 +1567,6 @@ function calcolaAbbinamentiTop() {
 function generaRosaIA(isShuffle = false) {
     const container = document.getElementById('aiSquadContainer');
     const recapBox = document.getElementById('calendarRecapBox');
-    const recapContent = document.getElementById('calendarRecapContent');
     
     const disponibili = allDatabasePlayers.filter(p => p.stato !== 'preso' && p.stato !== 'perso');
 
@@ -1514,10 +1716,26 @@ function apriDettagliGiocatore(player, event) {
     document.getElementById('modalPlayerSquadra').textContent = player.squadra;
     document.getElementById('squadraPiazzatiNome').textContent = player.squadra;
     
-    // CALCOLO MAX BID DINAMICO (FUNZIONALITÀ 3)
     const altriSlotMancanti = Math.max(0, slotMancantiAttuali - 1);
     const maxBidDisponibile = Math.max(1, budgetResiduoAttuale - altriSlotMancanti);
     document.getElementById('modalMaxBidCalculated').textContent = maxBidDisponibile + " FM";
+
+    // POPOLAMENTO COMPAGNI DI REPARTO NELLA MODAL
+    const compagni = allDatabasePlayers.filter(x => x.squadra === player.squadra && x.ruolo === player.ruolo && x.id !== player.id && (x.stato || '') === 'da_comprate');
+    const compagniBox = document.getElementById('modalCompagniBox');
+    const compagniList = document.getElementById('modalCompagniList');
+    
+    if (compagni.length > 0) {
+        document.getElementById('modalSquadraRepartoNome').textContent = player.squadra + " - " + player.ruolo;
+        let cHtml = '';
+        compagni.forEach(c => {
+            cHtml += `<span class="badge bg-secondary advisor-player-link p-2" onclick="caricaSchedaDaNome('${c.nome.replace(/'/g, "\\'")}')">👤 ${c.nome} (Excel: ${c.budget_max || 1} FM)</span>`;
+        });
+        compagniList.innerHTML = cHtml;
+        compagniBox.style.display = 'block';
+    } else {
+        compagniBox.style.display = 'none';
+    }
 
     const roleBadge = document.getElementById('modalPlayerRuolo');
     roleBadge.textContent = player.ruolo;
@@ -1595,6 +1813,7 @@ function simulaOfferta() {
 function prompPreso(id, nome) {
     let prezzo = prompt("A quanto hai acquistato " + nome + "? (Crediti FM):", "1");
     if (prezzo !== null && prezzo !== "") {
+        registraAzioneUndo(id, 'da_comprate');
         document.getElementById('presoPlayerId').value = id;
         document.getElementById('presoPrezzo').value = parseInt(prezzo) || 0;
         document.getElementById('formPreso').submit();
@@ -1603,13 +1822,21 @@ function prompPreso(id, nome) {
 
 document.addEventListener('DOMContentLoaded', function() {
     calcolaAbbinamentiTop();
+    checkBackupTimer();
+    controllaPulsanteUndo();
+    setInterval(checkBackupTimer, 30000);
+
+    // Ripristina Fast Mode se salvata
+    if (localStorage.getItem('fanta_fast_mode') === '1') {
+        document.body.classList.add('fast-auction-mode');
+        document.getElementById('fastModeLabel').textContent = 'Vista Completa';
+    }
 
     const searchInput = document.getElementById('searchInput');
     const filterBtns = document.querySelectorAll('.filter-btn');
     const rows = document.querySelectorAll('#playersTable tbody tr');
     let currentRole = 'all';
 
-    // SCORCIATOIA DA TASTIERA GLOBALE (FUNZIONALITÀ 1)
     document.addEventListener('keydown', function(e) {
         if ((e.key === 'f' || e.key === 'F' || e.key === '/') && document.activeElement !== searchInput && document.activeElement.tagName !== 'INPUT') {
             e.preventDefault();
@@ -1628,30 +1855,32 @@ document.addEventListener('DOMContentLoaded', function() {
         rows.forEach(row => {
             const text = row.textContent.toLowerCase();
             const role = row.getAttribute('data-role');
+            const fascia = row.getAttribute('data-fascia');
+            const stato = row.getAttribute('data-stato');
             const isFav = row.getAttribute('data-fav') === '1';
             const isRigorista = row.getAttribute('data-rigorista') === '1';
             const isPiazzato = row.getAttribute('data-piazzato') === '1';
             const isValorizzato = row.getAttribute('data-valorizzato') === '1';
-            const isNascosto = row.getAttribute('data-nascosto') === '1';
-            const isGiovane = row.getAttribute('data-giovane') === '1';
 
             const matchSearch = text.includes(term);
             let matchRole = false;
 
             if (currentRole === 'all') matchRole = true;
+            else if (currentRole === 'liberi') matchRole = (stato === 'da_comprate');
             else if (currentRole === 'fav') matchRole = isFav;
+            else if (currentRole === 'f_top') matchRole = fascia.includes('top');
+            else if (currentRole === 'f_1') matchRole = fascia.includes('1') || fascia.includes('prima');
+            else if (currentRole === 'f_2') matchRole = fascia.includes('2') || fascia.includes('seconda');
+            else if (currentRole === 'f_3') matchRole = fascia.includes('3') || fascia.includes('terza');
             else if (currentRole === 'rigoristi') matchRole = isRigorista;
             else if (currentRole === 'piazzati') matchRole = isPiazzato;
             else if (currentRole === 'valorizzati') matchRole = isValorizzato;
-            else if (currentRole === 'nascosti') matchRole = isNascosto;
-            else if (currentRole === 'giovani') matchRole = isGiovane;
             else matchRole = (role === currentRole);
 
             row.style.display = (matchSearch && matchRole) ? '' : 'none';
         });
     }
 
-    // GESTIONE QUICK BID SU TASTO INVIO (FUNZIONALITÀ 1)
     searchInput.addEventListener('keydown', function(e) {
         if (e.key === 'Enter') {
             const val = searchInput.value.trim();
@@ -1665,6 +1894,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 const matchedPlayer = allDatabasePlayers.find(p => p.nome.toLowerCase().includes(searchName) && p.stato !== 'preso');
                 if (matchedPlayer) {
                     if (confirm(`Confermi l'acquisto QUICK-BID di ${matchedPlayer.nome} a ${prezzo} FM?`)) {
+                        registraAzioneUndo(matchedPlayer.id, 'da_comprate');
                         document.getElementById('presoPlayerId').value = matchedPlayer.id;
                         document.getElementById('presoPrezzo').value = prezzo;
                         document.getElementById('formPreso').submit();
