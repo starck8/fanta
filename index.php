@@ -544,6 +544,98 @@ function parseXlsxNative($filePath) {
     return $allPlayers;
 }
 
+// HELPER PER INTEGRARE/MERGIARE I NUOVI DATI EXCEL MANTENENDO LO STATO DELL'ASTA
+function mergePlayersData($esistenti, $nuovi) {
+    $mapEsistenti = [];
+    foreach ($esistenti as $e) {
+        $key = mb_strtolower(trim($e['nome']), 'UTF-8') . '_' . $e['ruolo'];
+        $mapEsistenti[$key] = $e;
+    }
+
+    $risultato = [];
+    foreach ($nuovi as $n) {
+        $key = mb_strtolower(trim($n['nome']), 'UTF-8') . '_' . $n['ruolo'];
+        if (isset($mapEsistenti[$key])) {
+            // Mantiene gli attributi dell'asta live
+            $n['id'] = $mapEsistenti[$key]['id'];
+            $n['stato'] = $mapEsistenti[$key]['stato'] ?? 'da_comprate';
+            $n['prezzo_acquisto'] = $mapEsistenti[$key]['prezzo_acquisto'] ?? 0;
+            $n['preferito'] = $mapEsistenti[$key]['preferito'] ?? false;
+        }
+        $risultato[] = $n;
+    }
+    return $risultato;
+}
+
+// FUNZIONE PER CERCARE L'ULTIMO FILE FANTALAB NELLE CARTELLE TIPICHE
+function trovaUltimoFileFantaLab() {
+    $searchDirs = [
+        __DIR__, // Cartella dello script
+        sys_get_temp_dir()
+    ];
+
+    // Se siamo in ambiente locale Windows proviamo anche la cartella Downloads dell'utente
+    if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
+        $userProfile = getenv('USERPROFILE');
+        if ($userProfile) {
+            $searchDirs[] = $userProfile . DIRECTORY_SEPARATOR . 'Downloads';
+        }
+    }
+
+    $latestFile = null;
+    $latestMtime = 0;
+
+    foreach ($searchDirs as $dir) {
+        if (!is_dir($dir)) continue;
+        $files = glob($dir . DIRECTORY_SEPARATOR . '*.{xlsx,xls}', GLOB_BRACE);
+        if (!$files) continue;
+
+        foreach ($files as $file) {
+            $mtime = filemtime($file);
+            if ($mtime > $latestMtime) {
+                $latestMtime = $mtime;
+                $latestFile = $file;
+            }
+        }
+    }
+
+    return $latestFile;
+}
+
+// AZIONE AJAX / GET PER AGGIORNAMENTO AUTOMATICO DA FANTALAB
+if (isset($_GET['action']) && $_GET['action'] === 'auto_update_fantalab') {
+    header('Content-Type: application/json; charset=utf-8');
+
+    $fileTarget = trovaUltimoFileFantaLab();
+
+    if (!$fileTarget || !file_exists($fileTarget)) {
+        echo json_encode([
+            'success' => false, 
+            'message' => 'Nessun file Excel di FantaLab trovato! Assicurati di aver scaricato il file o di averlo inserito nella cartella del progetto.'
+        ]);
+        exit;
+    }
+
+    $nuovi = parseXlsxNative($fileTarget);
+    if (is_array($nuovi) && isset($nuovi['error'])) {
+        echo json_encode(['success' => false, 'message' => $nuovi['message']]);
+        exit;
+    }
+
+    $attuali = $data[$currentLega]['giocatori'] ?? [];
+    $merged = mergePlayersData($attuali, $nuovi);
+
+    $data[$currentLega]['giocatori'] = $merged;
+    file_put_contents($dataFile, json_encode($data, JSON_PRETTY_PRINT));
+
+    $nomeFile = basename($fileTarget);
+    echo json_encode([
+        'success' => true, 
+        'message' => "Database aggiornato con successo da: $nomeFile (" . count($merged) . " calciatori sincati! Stato asta preservato)."
+    ]);
+    exit;
+}
+
 // UPLOAD AJAX
 if (isset($_GET['action']) && $_GET['action'] === 'upload_file') {
     header('Content-Type: application/json; charset=utf-8');
@@ -571,9 +663,11 @@ if (isset($_GET['action']) && $_GET['action'] === 'upload_file') {
             echo json_encode(['success' => false, 'message' => $nuovi['message']]);
             exit;
         }
-        $data[$currentLega]['giocatori'] = $nuovi;
+        $attuali = $data[$currentLega]['giocatori'] ?? [];
+        $merged = mergePlayersData($attuali, $nuovi);
+        $data[$currentLega]['giocatori'] = $merged;
         file_put_contents($dataFile, json_encode($data, JSON_PRETTY_PRINT));
-        echo json_encode(['success' => true, 'message' => 'Importati ' . count($nuovi) . ' calciatori!']);
+        echo json_encode(['success' => true, 'message' => 'Importati ' . count($merged) . ' calciatori!']);
         exit;
     }
 }
@@ -790,6 +884,9 @@ $roleBadges = ['P' => 'bg-warning text-dark', 'D' => 'bg-primary', 'C' => 'bg-in
         <div class="d-flex align-items-center gap-2 flex-wrap">
             <span class="badge bg-secondary"><?php echo count($players); ?> Calciatori</span>
             
+            <!-- TASTO AGGIORNAMENTO AUTOMATICO FANTALAB -->
+            <button class="btn btn-sm btn-warning text-dark fw-bold" onclick="eseguiAutoUpdateFantaLab()"><i class="fa-solid fa-rotate me-1"></i> Sincronizza FantaLab</button>
+
             <!-- TASTO ANNULLA ULTIMA AZIONE (UNDO) -->
             <button id="btnUndoAction" class="btn btn-sm btn-outline-warning fw-bold d-none" onclick="eseguiUndo()"><i class="fa-solid fa-rotate-left me-1"></i> Annulla Ultimo Clic</button>
 
@@ -1088,7 +1185,7 @@ $roleBadges = ['P' => 'bg-warning text-dark', 'D' => 'bg-primary', 'C' => 'bg-in
                         <tbody>
                             <?php if (empty($players)): ?>
                                 <tr>
-                                    <td colspan="11" class="text-center text-muted py-5">Nessun giocatore salvato. Carica il file Excel per popolare automaticamente la dashboard!</td>
+                                    <td colspan="11" class="text-center text-muted py-5">Nessun giocatore salvato. Carica il file Excel o clicca "Sincronizza FantaLab" per popolare la dashboard!</td>
                                 </tr>
                             <?php else: ?>
                                 <?php foreach ($players as $p): 
@@ -1407,6 +1504,21 @@ const budgetResiduoAttuale = <?php echo $budgetResiduo; ?>;
 const slotMancantiAttuali = <?php echo $totaleSlotMancanti; ?>;
 const slotMancantiPerRuolo = <?php echo json_encode($slotMancanti, JSON_UNESCAPED_UNICODE); ?>;
 const budgetRuoliTarget = <?php echo json_encode($budgetRuoli, JSON_UNESCAPED_UNICODE); ?>;
+
+// FUNZIONE PER AGGIORNAMENTO AUTOMATICO DA FANTALAB
+function eseguiAutoUpdateFantaLab() {
+    fetch('index.php?lega=<?php echo $currentLega; ?>&action=auto_update_fantalab')
+        .then(response => response.json())
+        .then(data => {
+            alert(data.message);
+            if (data.success) {
+                window.location.reload();
+            }
+        })
+        .catch(err => {
+            alert('Errore durante la sincronizzazione automatica!');
+        });
+}
 
 // GESTIONE UNDO (ANNULLA ULTIMA AZIONE)
 function registraAzioneUndo(playerId, oldStatus) {
