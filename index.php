@@ -11,7 +11,6 @@ define('JSONBIN_BIN_ID', '6a84fe38da38895dfef50bc0');
 function getJsonBinData() {
     $ch = curl_init('https://api.jsonbin.io/v3/b/' . JSONBIN_BIN_ID . '/latest');
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false); // <--- AGGIUNGI QUESTA RIGA PER LOCALHOST
     curl_setopt($ch, CURLOPT_HTTPHEADER, [
         'X-Master-Key: ' . JSONBIN_KEY
     ]);
@@ -27,7 +26,6 @@ function saveJsonBinData($data) {
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'PUT');
     curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
-    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false); // <--- AGGIUNGI QUESTA RIGA PER LOCALHOST
     curl_setopt($ch, CURLOPT_HTTPHEADER, [
         'Content-Type: application/json',
         'X-Master-Key: ' . JSONBIN_KEY
