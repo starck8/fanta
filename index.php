@@ -1,41 +1,65 @@
 <?php
 // ==============================================================================
-// FANTASTRATEGY EXCEL SUPREME EDITION ⚡ - AUCTION LIVE ENGINE 2026/2027
+// GESTIONE PERSISTENZA IBRIDA (JSONBIN CLOUD + FALLBACK LOCALE FILE DATABASE.JSON)
 // ==============================================================================
-
-// CONFIGURAZIONE JSONBIN.IO PER PERSISTENZA CLOUD SU RENDER
 define('JSONBIN_KEY', '$2a$10$8MH7qeOlOzOGygnGefWnW.HIQrCN0ZrYF2.ZqsermJBSEU4o/GZl2'); 
 define('JSONBIN_BIN_ID', '6a84fe38da38895dfef50bc0');
+define('LOCAL_DB_FILE', __DIR__ . '/database.json');
 
-// Funzioni cURL per interagire con JSONBin.io
 function getJsonBinData() {
+    // 1. Prova a leggere dal Cloud JSONBin
     $ch = curl_init('https://api.jsonbin.io/v3/b/' . JSONBIN_BIN_ID . '/latest');
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch, CURLOPT_HTTPHEADER, [
-        'X-Master-Key: ' . JSONBIN_KEY
-    ]);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 5); // Timeout di 5 secondi per non bloccare XAMPP
+    curl_setopt($ch, CURLOPT_HTTPHEADER, ['X-Master-Key: ' . JSONBIN_KEY]);
     $response = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     curl_close($ch);
     
-    $decoded = json_decode($response, true);
-    return $decoded['record'] ?? null;
+    if ($httpCode === 200) {
+        $decoded = json_decode($response, true);
+        if (isset($decoded['record']) && is_array($decoded['record'])) {
+            // Salva una copia di backup locale
+            file_put_contents(LOCAL_DB_FILE, json_encode($decoded['record'], JSON_PRETTY_PRINT));
+            return $decoded['record'];
+        }
+    }
+
+    // 2. Se JSONBin fallisce o va in errore, legge dal file locale database.json
+    if (file_exists(LOCAL_DB_FILE)) {
+        $localContent = file_get_contents(LOCAL_DB_FILE);
+        $localData = json_decode($localContent, true);
+        if (is_array($localData)) {
+            return $localData;
+        }
+    }
+
+    return null;
 }
 
 function saveJsonBinData($data) {
+    // Salva SEMPRE sul file locale per evitare di perdere i dati
+    file_put_contents(LOCAL_DB_FILE, json_encode($data, JSON_PRETTY_PRINT));
+
+    // Prova a sincronizzare anche sul Cloud JSONBin
     $ch = curl_init('https://api.jsonbin.io/v3/b/' . JSONBIN_BIN_ID);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'PUT');
     curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 5);
     curl_setopt($ch, CURLOPT_HTTPHEADER, [
         'Content-Type: application/json',
         'X-Master-Key: ' . JSONBIN_KEY
     ]);
     $response = curl_exec($ch);
     curl_close($ch);
+
     return $response;
 }
 
-// Inizializzazione struttura predefinita multi-lega
+// Struttura predefinita multi-lega
 $defaultLegaStructure = [
     'lega1' => [
         'nome' => 'Lega 1', 
@@ -56,12 +80,13 @@ $defaultLegaStructure = [
 // Lettura dati dal Cloud JSONBin
 $data = getJsonBinData();
 
-if (!is_array($data) || empty($data)) {
+// Inizializza SOLO se la risposta è totalmente nulla (primo avvio in assoluto)
+if (!is_array($data)) {
     $data = $defaultLegaStructure;
     saveJsonBinData($data);
 }
 
-// Assicura l'esistenza delle due leghe predefinite se mancanti
+// Assicura l'esistenza delle due leghe predefinite senza azzerare i giocatori esistenti
 if (!isset($data['lega1'])) { $data['lega1'] = $defaultLegaStructure['lega1']; }
 if (!isset($data['lega2'])) { $data['lega2'] = $defaultLegaStructure['lega2']; }
 
@@ -393,7 +418,7 @@ function getTeamCalendarStats($teamCode) {
     ];
 }
 
-// PARSER XLSX NATIVO
+// PARSER XLSX NATIVO CON SUPPORTO PER TUTTI I FOGLI E SINONIMI INTESTAZIONI
 function parseXlsxNative($filePath) {
     if (!class_exists('ZipArchive')) {
         return ['error' => true, 'message' => 'L\'estensione PHP "zip" non è abilitata!'];
@@ -434,10 +459,9 @@ function parseXlsxNative($filePath) {
 
     $allPlayers = [];
 
-    foreach (['P', 'D', 'C', 'A'] as $sheetName) {
-        if (!isset($fileMap[$sheetName])) continue;
-
-        $sheetXmlContent = $zip->getFromName($fileMap[$sheetName]);
+    // LEGGE TUTTI I FOGLI PRESENTI NELL'EXCEL
+    foreach ($fileMap as $sheetName => $xmlPath) {
+        $sheetXmlContent = $zip->getFromName($xmlPath);
         if ($sheetXmlContent === false) continue;
 
         $xml = simplexml_load_string($sheetXmlContent);
@@ -462,9 +486,17 @@ function parseXlsxNative($filePath) {
             $header[$cIdx] = cleanHeaderStr($cVal);
         }
 
-        $idxNome         = array_search('nome', $header);
-        $idxRuolo        = array_search('ruolo', $header);
-        $idxTeam         = array_search('team', $header);
+        // MAPPATURA ELASTICA DELLE COLONNE
+        $idxNome = array_search('nome', $header);
+        if ($idxNome === false) $idxNome = array_search('calciatore', $header);
+        if ($idxNome === false) $idxNome = array_search('giocatore', $header);
+
+        $idxRuolo = array_search('ruolo', $header);
+        if ($idxRuolo === false) $idxRuolo = array_search('r', $header);
+
+        $idxTeam = array_search('team', $header);
+        if ($idxTeam === false) $idxTeam = array_search('squadra', $header);
+
         $idxFascia       = array_search('fascia', $header);
         $idxPrezzo       = array_search('prezzo', $header);
         $idxPma          = array_search('pma', $header);
@@ -490,7 +522,7 @@ function parseXlsxNative($filePath) {
 
         $noteCols = [];
         foreach ($header as $cIdx => $cName) {
-            if (str_contains($cName, 'nota') || $cName === 'commento') {
+            if (str_contains($cName, 'nota') || str_contains($cName, 'commento') || str_contains($cName, 'descrizione')) {
                 $noteCols[] = $cIdx;
             }
         }
@@ -562,7 +594,7 @@ function parseXlsxNative($filePath) {
     return $allPlayers;
 }
 
-// HELPER PER INTEGRARE/MERGIARE I NUOVI DATI EXCEL MANTENENDO LO STATO DELL'ASTA
+// HELPER PER INTEGRARE I NUOVI DATI EXCEL MANTENENDO LO STATO DELL'ASTA
 function mergePlayersData($esistenti, $nuovi) {
     $mapEsistenti = [];
     foreach ($esistenti as $e) {
@@ -574,7 +606,6 @@ function mergePlayersData($esistenti, $nuovi) {
     foreach ($nuovi as $n) {
         $key = mb_strtolower(trim($n['nome']), 'UTF-8') . '_' . $n['ruolo'];
         if (isset($mapEsistenti[$key])) {
-            // Mantiene gli attributi dell'asta live
             $n['id'] = $mapEsistenti[$key]['id'];
             $n['stato'] = $mapEsistenti[$key]['stato'] ?? 'da_comprate';
             $n['prezzo_acquisto'] = $mapEsistenti[$key]['prezzo_acquisto'] ?? 0;
@@ -585,10 +616,10 @@ function mergePlayersData($esistenti, $nuovi) {
     return $risultato;
 }
 
-// FUNZIONE PER CERCARE L'ULTIMO FILE FANTALAB NELLE CARTELLE TIPICHE
+// FUNZIONE PER CERCARE L'ULTIMO FILE FANTALAB
 function trovaUltimoFileFantaLab() {
     $searchDirs = [
-        __DIR__, // Cartella dello script
+        __DIR__,
         sys_get_temp_dir()
     ];
 
@@ -619,7 +650,7 @@ function trovaUltimoFileFantaLab() {
     return $latestFile;
 }
 
-// AZIONE AJAX / GET PER AGGIORNAMENTO AUTOMATICO DA FANTALAB (MULTI-LEGA)
+// AZIONE AJAX / GET PER AGGIORNAMENTO AUTOMATICO DA FANTALAB
 if (isset($_GET['action']) && $_GET['action'] === 'auto_update_fantalab') {
     header('Content-Type: application/json; charset=utf-8');
 
@@ -628,7 +659,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'auto_update_fantalab') {
     if (!$fileTarget || !file_exists($fileTarget)) {
         echo json_encode([
             'success' => false, 
-            'message' => 'Nessun file Excel di FantaLab trovato! Assicurati di aver scaricato il file o di averlo inserito nella cartella del progetto.'
+            'message' => 'Nessun file Excel di FantaLab trovato! Scarica il file in Downloads o inseriscilo nella cartella di progetto.'
         ]);
         exit;
     }
@@ -639,7 +670,6 @@ if (isset($_GET['action']) && $_GET['action'] === 'auto_update_fantalab') {
         exit;
     }
 
-    // Aggiorna simultaneamente il listone di tutte le leghe salvaguardando le rispettive aste
     foreach (array_keys($data) as $lKey) {
         $attualiLega = $data[$lKey]['giocatori'] ?? [];
         $data[$lKey]['giocatori'] = mergePlayersData($attualiLega, $nuovi);
@@ -650,12 +680,12 @@ if (isset($_GET['action']) && $_GET['action'] === 'auto_update_fantalab') {
     $nomeFile = basename($fileTarget);
     echo json_encode([
         'success' => true, 
-        'message' => "Database aggiornato su TUTTE le leghe con successo da: $nomeFile (" . count($nuovi) . " calciatori sincati! Stato asta preservato)."
+        'message' => "Database aggiornato su TUTTE le leghe con successo da: $nomeFile (" . count($nuovi) . " calciatori sincronizzati)."
     ]);
     exit;
 }
 
-// UPLOAD AJAX (MULTI-LEGA)
+// UPLOAD AJAX MULTI-LEGA
 if (isset($_GET['action']) && $_GET['action'] === 'upload_file') {
     header('Content-Type: application/json; charset=utf-8');
 
@@ -682,8 +712,12 @@ if (isset($_GET['action']) && $_GET['action'] === 'upload_file') {
             echo json_encode(['success' => false, 'message' => $nuovi['message']]);
             exit;
         }
+
+        if (empty($nuovi)) {
+            echo json_encode(['success' => false, 'message' => 'Nessun calciatore estratto dal file. Verifica la presenza della colonna Nome.']);
+            exit;
+        }
         
-        // Aggiorna simultaneamente il listone di tutte le leghe salvaguardando le rispettive aste
         foreach (array_keys($data) as $lKey) {
             $attualiLega = $data[$lKey]['giocatori'] ?? [];
             $data[$lKey]['giocatori'] = mergePlayersData($attualiLega, $nuovi);
@@ -866,12 +900,10 @@ $roleBadges = ['P' => 'bg-warning text-dark', 'D' => 'bg-primary', 'C' => 'bg-in
         .combo-card:hover { border-color: #ffc107; transform: translateY(-2px); }
         .tactical-badge { font-size: 0.72rem; padding: 3px 7px; border-radius: 6px; margin-right: 3px; font-weight: bold; }
 
-        /* MODALITÀ ASTA VELOCE UI High-Density */
         body.fast-auction-mode .toggle-hide-fast { display: none !important; }
         body.fast-auction-mode .table-custom td, body.fast-auction-mode .table-custom th { padding: 4px 8px !important; font-size: 0.8rem !important; }
         body.fast-auction-mode .note-text { display: none !important; }
 
-        /* ANIMAZIONE E STILI PROMEMORIA BACKUP INTELLIGENTE */
         @keyframes pulse-backup {
             0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 193, 7, 0.8); }
             70% { transform: scale(1.05); box-shadow: 0 0 0 10px rgba(255, 193, 7, 0); }
@@ -900,13 +932,12 @@ $roleBadges = ['P' => 'bg-warning text-dark', 'D' => 'bg-primary', 'C' => 'bg-in
     <a href="index.php?lega=<?php echo $currentLega; ?>&action=export_backup&type=json" class="btn btn-xs btn-warning text-dark fw-bold ms-2 px-2 py-0" onclick="resetBackupTimer()"><i class="fa-solid fa-download me-1"></i> Salva Ora</a>
 </div>
 
-<!-- NAVBAR CON PULSANTI EXPORT BACKUP, UNDO E SELETTORE MULTI-LEGA -->
+<!-- NAVBAR CON SELETTORE MULTI-LEGA E TASTI -->
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark border-bottom border-secondary sticky-top shadow">
     <div class="container-fluid px-4">
         <a class="navbar-brand fw-bold text-warning fs-4" href="#"><i class="fa-solid fa-crown me-2"></i>FantaStrategy LIVE ENGINE</a>
         
         <div class="d-flex align-items-center gap-2 flex-wrap">
-            <!-- SELETTORE LEGA DINAMICO -->
             <div class="dropdown">
                 <button class="btn btn-sm btn-outline-warning dropdown-toggle fw-bold text-white" type="button" data-bs-toggle="dropdown">
                     <i class="fa-solid fa-trophy text-warning me-1"></i> 
@@ -921,21 +952,15 @@ $roleBadges = ['P' => 'bg-warning text-dark', 'D' => 'bg-primary', 'C' => 'bg-in
 
             <span class="badge bg-secondary"><?php echo count($players); ?> Calciatori</span>
             
-            <!-- TASTO AGGIORNAMENTO AUTOMATICO FANTALAB -->
             <button class="btn btn-sm btn-warning text-dark fw-bold" onclick="eseguiAutoUpdateFantaLab()"><i class="fa-solid fa-rotate me-1"></i> Sincronizza FantaLab</button>
-
-            <!-- TASTO ANNULLA ULTIMA AZIONE (UNDO) -->
             <button id="btnUndoAction" class="btn btn-sm btn-outline-warning fw-bold d-none" onclick="eseguiUndo()"><i class="fa-solid fa-rotate-left me-1"></i> Annulla Ultimo Clic</button>
-
-            <!-- TOGGLE VISTA ASTA VELOCE -->
             <button class="btn btn-sm btn-info fw-bold text-dark" onclick="toggleFastMode()"><i class="fa-solid fa-bolt me-1"></i> <span id="fastModeLabel">Vista Veloce</span></button>
 
-            <!-- TASTI DI EXPORT BACKUP -->
             <a id="btnExportJson" href="index.php?lega=<?php echo $currentLega; ?>&action=export_backup&type=json" class="btn btn-sm btn-success fw-bold" onclick="resetBackupTimer()"><i class="fa-solid fa-download me-1"></i> Scarica JSON</a>
             <a href="index.php?lega=<?php echo $currentLega; ?>&action=export_backup&type=csv" class="btn btn-sm btn-outline-success fw-bold"><i class="fa-solid fa-file-csv me-1"></i> Esporta CSV</a>
             
             <button class="btn btn-sm btn-outline-warning" data-bs-toggle="modal" data-bs-target="#importModal"><i class="fa-solid fa-file-excel me-1"></i> Carica JSON/Excel</button>
-            <form method="POST" style="display:inline;" onsubmit="return confirm('Sei sicuro di voler svuotare interamente il database dei calciatori per la lega attuale?');">
+            <form method="POST" style="display:inline;" onsubmit="return confirm('Sei sicuro di voler svuotare interamente il database dei calciatori?');">
                 <input type="hidden" name="action" value="clear_database">
                 <button type="submit" class="btn btn-sm btn-outline-danger"><i class="fa-solid fa-trash-can me-1"></i> Svuota DB</button>
             </form>
@@ -963,7 +988,6 @@ $roleBadges = ['P' => 'bg-warning text-dark', 'D' => 'bg-primary', 'C' => 'bg-in
                     </div>
                 </div>
 
-                <!-- ALERT ZONA ROSSA CREDITI NEL KPI -->
                 <div class="col-md-3">
                     <div class="card card-custom p-3 kpi-card <?php echo $isZonaRossaBudget ? 'border-danger bg-danger text-white' : 'border-success'; ?>">
                         <small class="text-uppercase fw-bold <?php echo $isZonaRossaBudget ? 'text-white' : 'text-muted'; ?>">Budget Residuo</small>
@@ -986,7 +1010,7 @@ $roleBadges = ['P' => 'bg-warning text-dark', 'D' => 'bg-primary', 'C' => 'bg-in
             <div class="card card-custom p-3 ai-card">
                 <div class="d-flex align-items-center mb-2">
                     <i class="fa-solid fa-robot text-info fs-4 me-2"></i>
-                    <h6 class="m-0 text-info fw-bold">Fanta-Advisor AI Live (Consigli in Tempo Reale - <?php echo htmlspecialchars($data[$currentLega]['nome']); ?>)</h6>
+                    <h6 class="m-0 text-info fw-bold">Fanta-Advisor AI Live (Consigli in Tempo Reale)</h6>
                 </div>
                 <ul class="mb-0 ps-3 small">
                     <?php foreach ($aiAdviceList as $advice): ?>
@@ -1165,7 +1189,7 @@ $roleBadges = ['P' => 'bg-warning text-dark', 'D' => 'bg-primary', 'C' => 'bg-in
         </div>
     </div>
 
-    <!-- MAIN CONTENT: TABELLA FULL-WIDTH CON FILTRI TATTICI E FASCE -->
+    <!-- MAIN CONTENT: TABELLA CON FILTRI TATTICI -->
     <div class="row g-4">
         <div class="col-12">
             <div class="card card-custom p-3">
@@ -1177,24 +1201,20 @@ $roleBadges = ['P' => 'bg-warning text-dark', 'D' => 'bg-primary', 'C' => 'bg-in
                         </div>
                     </div>
                     
-                    <!-- BARRA FILTRI RAPIDI PER RUOLO, FASCIA E STATO -->
                     <div class="col-md-9 d-flex gap-1 justify-content-md-end flex-wrap">
                         <button class="btn btn-sm btn-outline-light filter-btn active" data-role="all">Tutti</button>
                         <button class="btn btn-sm btn-outline-success filter-btn" data-role="liberi"><i class="fa-solid fa-eye me-1"></i> Solo Liberi</button>
                         <button class="btn btn-sm btn-outline-warning filter-btn" data-role="fav"><i class="fa-solid fa-star text-warning me-1"></i> Preferiti</button>
                         <div class="vr mx-1"></div>
-                        <!-- FILTRI FASCIA EXCEL -->
                         <button class="btn btn-sm btn-outline-light filter-btn" data-role="f_top">⭐ Top</button>
                         <button class="btn btn-sm btn-outline-light filter-btn" data-role="f_1">1ª Fascia</button>
                         <button class="btn btn-sm btn-outline-light filter-btn" data-role="f_2">2ª Fascia</button>
                         <button class="btn btn-sm btn-outline-light filter-btn" data-role="f_3">3ª Fascia</button>
                         <div class="vr mx-1"></div>
-                        <!-- FILTRI TATTICI -->
                         <button class="btn btn-sm btn-outline-danger filter-btn" data-role="rigoristi">⚽ Rigoristi</button>
                         <button class="btn btn-sm btn-outline-info filter-btn" data-role="piazzati">🎯 Piazzati</button>
                         <button class="btn btn-sm btn-outline-success filter-btn" data-role="valorizzati">📈 Valorizzati</button>
                         <div class="vr mx-1"></div>
-                        <!-- FILTRI RUOLO -->
                         <button class="btn btn-sm btn-outline-warning filter-btn" data-role="P">P</button>
                         <button class="btn btn-sm btn-outline-primary filter-btn" data-role="D">D</button>
                         <button class="btn btn-sm btn-outline-info filter-btn" data-role="C">C</button>
@@ -1236,7 +1256,6 @@ $roleBadges = ['P' => 'bg-warning text-dark', 'D' => 'bg-primary', 'C' => 'bg-in
                                     $isNascosto = $tattica && in_array($p['nome'], $tattica['nascosti']);
                                     $isGiovane = $tattica && in_array($p['nome'], $tattica['giovani']);
 
-                                    // COMPAGNI DI REPARTO LIBERI IN SQUADRA
                                     $compagniRepartoLiberi = array_filter($players, fn($x) => $x['squadra'] === $squadra && $x['ruolo'] === $p['ruolo'] && $x['id'] !== $p['id'] && ($x['stato'] ?? '') === 'da_comprate');
                                     $hasCompagniLiberi = count($compagniRepartoLiberi) > 0;
 
@@ -1294,12 +1313,10 @@ $roleBadges = ['P' => 'bg-warning text-dark', 'D' => 'bg-primary', 'C' => 'bg-in
                                         </td>
                                         <td>
                                             <div class="mb-1">
-                                                <!-- BADGE COPPIA LIBERA -->
                                                 <?php if ($hasCompagniLiberi): ?>
                                                     <span class="badge bg-dark border border-warning text-warning tactical-badge" data-bs-toggle="tooltip" title="<?php echo count($compagniRepartoLiberi); ?> compagni di reparto liberi nel DB">🔗 COPPIA DISPONIBILE</span>
                                                 <?php endif; ?>
 
-                                                <!-- BADGE TATTICI -->
                                                 <?php if ($isRigorista): ?><span class="badge bg-danger tactical-badge">⚽ RIGORISTA</span><?php endif; ?>
                                                 <?php if ($isPiazzato): ?><span class="badge bg-info text-dark tactical-badge">🎯 PIAZZATI</span><?php endif; ?>
                                                 <?php if ($isValorizzato): ?><span class="badge bg-success tactical-badge">📈 VALORIZZATO</span><?php endif; ?>
@@ -1307,7 +1324,6 @@ $roleBadges = ['P' => 'bg-warning text-dark', 'D' => 'bg-primary', 'C' => 'bg-in
                                                 <?php if ($isNascosto): ?><span class="badge bg-secondary tactical-badge">🕵️ NASCOSTO</span><?php endif; ?>
                                                 <?php if ($isGiovane): ?><span class="badge bg-primary tactical-badge">👶 GIOVANE</span><?php endif; ?>
 
-                                                <!-- BADGE EXCEL ESSENZIALI -->
                                                 <?php if (str_contains($notesLower, 'titolarissimo')): ?><span class="badge bg-dark border border-success text-success me-1" data-bs-toggle="tooltip" title="Titolare inamovibile">🔄 Tit</span><?php endif; ?>
                                                 <?php if (str_contains($notesLower, 'modificatore')): ?><span class="badge bg-dark border border-primary text-primary me-1" data-bs-toggle="tooltip" title="Ottimo per Modificatore">🛡️ Mod</span><?php endif; ?>
                                                 <?php if ($isPortiere && str_contains($notesLower, 'imbattibil')): ?><span class="badge bg-dark border border-info text-info me-1" data-bs-toggle="tooltip" title="Portiere imbattibilità">🛡️ Imbattibilità</span><?php endif; ?>
@@ -1376,8 +1392,6 @@ $roleBadges = ['P' => 'bg-warning text-dark', 'D' => 'bg-primary', 'C' => 'bg-in
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-
-                <!-- MAX BID ALERT DINAMICO -->
                 <div class="alert alert-danger d-flex align-items-center justify-content-between p-2 mb-3 border-danger bg-dark">
                     <div>
                         <i class="fa-solid fa-triangle-exclamation text-danger fs-4 me-2"></i>
@@ -1386,25 +1400,21 @@ $roleBadges = ['P' => 'bg-warning text-dark', 'D' => 'bg-primary', 'C' => 'bg-in
                     <span id="modalMaxBidCalculated" class="badge bg-danger fs-6 fw-bold">0 FM</span>
                 </div>
 
-                <!-- MODULO COMPAGNI DI REPARTO NELLA STESSA SQUADRA -->
                 <div id="modalCompagniBox" class="p-2 border border-warning rounded bg-dark mb-3" style="display:none;">
                     <h6 class="text-warning fw-bold mb-1 small"><i class="fa-solid fa-people-arrows me-1"></i> Compagni di Reparto Disponibili nel DB (<span id="modalSquadraRepartoNome"></span>)</h6>
                     <div id="modalCompagniList" class="d-flex flex-wrap gap-2 pt-1"></div>
                 </div>
 
-                <!-- 1. FANTA-ADVICE & ANALISI TATTICA -->
                 <div class="advisor-box mb-3">
                     <h6 class="text-warning fw-bold mb-1"><i class="fa-solid fa-lightbulb me-1"></i> Fanta-Advice & Analisi Tattica Allenatore</h6>
                     <div id="modalPlayerAdvice" class="small text-light"></div>
                 </div>
 
-                <!-- DIFFICOLTÀ CALENDARIO SQUADRA FANTALAB -->
                 <div class="cal-box mb-3">
                     <h6 class="text-warning fw-bold mb-1"><i class="fa-solid fa-calendar-alt me-1"></i> Calendario FantaLab Stagione 2026/2027 (<span id="calSquadraNome"></span>)</h6>
                     <div class="row g-2 text-center" id="modalCalendarBadges"></div>
                 </div>
 
-                <!-- BALLOTTAGGI LIVE & GERARCHIE PIAZZATI SQUADRA -->
                 <div class="p-2 border border-secondary rounded bg-dark mb-3">
                     <h6 class="text-info fw-bold mb-1 small"><i class="fa-solid fa-scale-balanced me-1"></i> Ballottaggi & Gerarchia Piazzati (<span id="squadraPiazzatiNome"></span>)</h6>
                     <div id="modalBallottaggiBox" class="small text-light mb-2"></div>
@@ -1415,7 +1425,6 @@ $roleBadges = ['P' => 'bg-warning text-dark', 'D' => 'bg-primary', 'C' => 'bg-in
                     </div>
                 </div>
 
-                <!-- INDICI D'ASTA E VALUTAZIONE EXCEL -->
                 <h6 class="text-warning fw-bold border-bottom border-secondary pb-1 mb-2"><i class="fa-solid fa-chart-pie me-1"></i> Valutazione Asta & Indici Excel</h6>
                 <div class="row g-2 text-center mb-3">
                     <div class="col-md-2 col-4"><div class="p-2 bg-dark rounded border border-secondary"><small class="text-muted d-block">Fascia</small><strong id="modalPlayerFascia" class="text-warning fs-6"></strong></div></div>
@@ -1426,7 +1435,6 @@ $roleBadges = ['P' => 'bg-warning text-dark', 'D' => 'bg-primary', 'C' => 'bg-in
                     <div class="col-md-2 col-4"><div class="p-2 bg-dark rounded border border-secondary"><small class="text-muted d-block">Integrità</small><strong id="modalPlayerIntegrita" class="text-danger fs-6"></strong></div></div>
                 </div>
 
-                <!-- STATISTICHE GENERALI -->
                 <h6 class="text-warning fw-bold border-bottom border-secondary pb-1 mb-2"><i class="fa-solid fa-list-ol me-1"></i> Statistiche di Rendimento</h6>
                 <div class="row g-2 text-center mb-3">
                     <div class="col-md-3 col-6"><div class="p-2 bg-dark rounded border border-secondary"><small class="text-muted d-block">MV / FMV</small><span class="fs-6 fw-bold text-light"><span id="modalPlayerMV"></span> / <span id="modalPlayerFMV" class="text-info"></span></span></div></div>
@@ -1435,7 +1443,6 @@ $roleBadges = ['P' => 'bg-warning text-dark', 'D' => 'bg-primary', 'C' => 'bg-in
                     <div class="col-md-3 col-6"><div class="p-2 bg-dark rounded border border-secondary"><small class="text-muted d-block">Minuti (Infortuni)</small><span class="fs-6 fw-bold text-light"><span id="modalPlayerMinuti"></span>' (<span id="modalPlayerPtInf" class="text-danger"></span>)</span></div></div>
                 </div>
 
-                <!-- BONUS & MALUS DETTAGLIATI -->
                 <h6 class="text-warning fw-bold border-bottom border-secondary pb-1 mb-2"><i class="fa-solid fa-futbol me-1"></i> Bonus & Malus Storici</h6>
                 <div class="row g-2 text-center mb-3">
                     <div class="col"><div class="p-2 bg-dark rounded border border-secondary"><small class="text-muted d-block">Gol</small><strong id="modalPlayerGol" class="text-success fs-6"></strong></div></div>
@@ -1445,7 +1452,6 @@ $roleBadges = ['P' => 'bg-warning text-dark', 'D' => 'bg-primary', 'C' => 'bg-in
                     <div class="col"><div class="p-2 bg-dark rounded border border-secondary"><small class="text-muted d-block">Gol Subiti</small><strong id="modalPlayerGolSub" class="text-danger fs-6"></strong></div></div>
                 </div>
 
-                <!-- TAG & NOTE ESTESE -->
                 <div class="mb-3">
                     <small class="text-muted d-block mb-1 text-uppercase fw-bold">Tag & Caratteristiche:</small>
                     <div id="modalPlayerTags" class="d-flex flex-wrap gap-1 mb-2"></div>
@@ -1542,7 +1548,6 @@ const slotMancantiAttuali = <?php echo $totaleSlotMancanti; ?>;
 const slotMancantiPerRuolo = <?php echo json_encode($slotMancanti, JSON_UNESCAPED_UNICODE); ?>;
 const budgetRuoliTarget = <?php echo json_encode($budgetRuoli, JSON_UNESCAPED_UNICODE); ?>;
 
-// FUNZIONE PER AGGIORNAMENTO AUTOMATICO DA FANTALAB
 function eseguiAutoUpdateFantaLab() {
     fetch('index.php?lega=<?php echo $currentLega; ?>&action=auto_update_fantalab')
         .then(response => response.json())
@@ -1557,7 +1562,6 @@ function eseguiAutoUpdateFantaLab() {
         });
 }
 
-// GESTIONE UNDO (ANNULLA ULTIMA AZIONE)
 function registraAzioneUndo(playerId, oldStatus) {
     sessionStorage.setItem('fanta_undo_player_id', playerId);
     sessionStorage.setItem('fanta_undo_status', oldStatus);
@@ -1583,7 +1587,6 @@ function eseguiUndo() {
     }
 }
 
-// TOGGLE ASTA VELOCE UI
 function toggleFastMode() {
     document.body.classList.toggle('fast-auction-mode');
     const isFast = document.body.classList.contains('fast-auction-mode');
@@ -1591,7 +1594,6 @@ function toggleFastMode() {
     document.getElementById('fastModeLabel').textContent = isFast ? 'Vista Completa' : 'Vista Veloce';
 }
 
-// GESTIONE PROMEMORIA BACKUP VISIVO INTELLIGENTE
 let lastBackupTimestamp = localStorage.getItem('fanta_last_backup_time') || Date.now();
 const BACKUP_INTERVAL_MINUTES = 15;
 
@@ -1627,7 +1629,6 @@ function getTeamStats(teamCode) {
     return { facili: f, medie: m, difficili: d };
 }
 
-// ALGORITMO ABBINAMENTI PORTIERI E ATTACCANTI
 function calcolaAbbinamentiTop() {
     const kBox = document.getElementById('keeperCombosBox');
     const sBox = document.getElementById('strikerCombosBox');
@@ -1712,7 +1713,6 @@ function calcolaAbbinamentiTop() {
     sBox.innerHTML = sHtml || '<div class="small text-muted">Carica attaccanti per vedere le coppie.</div>';
 }
 
-// GENERATORE IA COMPLETO BILANCIATO
 function generaRosaIA(isShuffle = false) {
     const container = document.getElementById('aiSquadContainer');
     const recapBox = document.getElementById('calendarRecapBox');
@@ -1869,7 +1869,6 @@ function apriDettagliGiocatore(player, event) {
     const maxBidDisponibile = Math.max(1, budgetResiduoAttuale - altriSlotMancanti);
     document.getElementById('modalMaxBidCalculated').textContent = maxBidDisponibile + " FM";
 
-    // POPOLAMENTO COMPAGNI DI REPARTO NELLA MODAL
     const compagni = allDatabasePlayers.filter(x => x.squadra === player.squadra && x.ruolo === player.ruolo && x.id !== player.id && (x.stato || '') === 'da_comprate');
     const compagniBox = document.getElementById('modalCompagniBox');
     const compagniList = document.getElementById('modalCompagniList');
@@ -1975,7 +1974,6 @@ document.addEventListener('DOMContentLoaded', function() {
     controllaPulsanteUndo();
     setInterval(checkBackupTimer, 30000);
 
-    // Ripristina Fast Mode se salvata
     if (localStorage.getItem('fanta_fast_mode') === '1') {
         document.body.classList.add('fast-auction-mode');
         document.getElementById('fastModeLabel').textContent = 'Vista Completa';
