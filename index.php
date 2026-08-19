@@ -2,16 +2,25 @@
 // ==============================================================================
 // GESTIONE PERSISTENZA IBRIDA (JSONBIN CLOUD + FALLBACK LOCALE FILE DATABASE.JSON)
 // ==============================================================================
-define('JSONBIN_KEY', '$2a$10$8MH7qeOlOzOGygnGefWnW.HIQrCN0ZrYF2.ZqsermJBSEU4o/GZl2'); 
+define('JSONBIN_KEY', '$2a$10$ROFRYA7Un/yaWB24eb27We2QRnYlS6VqJ5yJs3ZjCahu45XEVCl0a'); 
 define('JSONBIN_BIN_ID', '6a84fe38da38895dfef50bc0');
 define('LOCAL_DB_FILE', __DIR__ . '/database.json');
 
 function getJsonBinData() {
-    // 1. Prova a leggere dal Cloud JSONBin
+    // 1. Se esiste un database locale con giocatori, priorità assoluta al locale su XAMPP
+    if (file_exists(LOCAL_DB_FILE)) {
+        $localContent = file_get_contents(LOCAL_DB_FILE);
+        $localData = json_decode($localContent, true);
+        if (is_array($localData) && isset($localData['lega1']['giocatori']) && count($localData['lega1']['giocatori']) > 0) {
+            return $localData;
+        }
+    }
+
+    // 2. Altrimenti prova a scaricare da Cloud JSONBin
     $ch = curl_init('https://api.jsonbin.io/v3/b/' . JSONBIN_BIN_ID . '/latest');
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-    curl_setopt($ch, CURLOPT_TIMEOUT, 5); // Timeout di 5 secondi per non bloccare XAMPP
+    curl_setopt($ch, CURLOPT_TIMEOUT, 5);
     curl_setopt($ch, CURLOPT_HTTPHEADER, ['X-Master-Key: ' . JSONBIN_KEY]);
     $response = curl_exec($ch);
     $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
@@ -20,13 +29,12 @@ function getJsonBinData() {
     if ($httpCode === 200) {
         $decoded = json_decode($response, true);
         if (isset($decoded['record']) && is_array($decoded['record'])) {
-            // Salva una copia di backup locale
             file_put_contents(LOCAL_DB_FILE, json_encode($decoded['record'], JSON_PRETTY_PRINT));
             return $decoded['record'];
         }
     }
 
-    // 2. Se JSONBin fallisce o va in errore, legge dal file locale database.json
+    // 3. Fallback sul file locale se presente
     if (file_exists(LOCAL_DB_FILE)) {
         $localContent = file_get_contents(LOCAL_DB_FILE);
         $localData = json_decode($localContent, true);
@@ -39,10 +47,10 @@ function getJsonBinData() {
 }
 
 function saveJsonBinData($data) {
-    // Salva SEMPRE sul file locale per evitare di perdere i dati
+    // Salva SEMPRE sul file locale per prevenire perdite durante la sessione
     file_put_contents(LOCAL_DB_FILE, json_encode($data, JSON_PRETTY_PRINT));
 
-    // Prova a sincronizzare anche sul Cloud JSONBin
+    // Sincronizza sul Cloud JSONBin per mantenere i dati permanenti anche se Render si spegne
     $ch = curl_init('https://api.jsonbin.io/v3/b/' . JSONBIN_BIN_ID);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'PUT');
@@ -77,11 +85,19 @@ $defaultLegaStructure = [
     ]
 ];
 
-// Lettura dati dal Cloud JSONBin
+// Lettura dati dal Cloud JSONBin / Backup Locale
 $data = getJsonBinData();
 
-// Inizializza SOLO se la risposta è totalmente nulla (primo avvio in assoluto)
+// IMPEDISCE l'azzeramento se JSONBin risponde vuoto ma c'è già un file locale sul server
 if (!is_array($data)) {
+    if (file_exists(LOCAL_DB_FILE)) {
+        $localContent = file_get_contents(LOCAL_DB_FILE);
+        $data = json_decode($localContent, true);
+    }
+}
+
+// Inizializza con la struttura di default SOLO se sia Cloud che Locale sono completamente vuoti
+if (!is_array($data) || empty($data)) {
     $data = $defaultLegaStructure;
     saveJsonBinData($data);
 }
@@ -616,7 +632,7 @@ function mergePlayersData($esistenti, $nuovi) {
     return $risultato;
 }
 
-// FUNZIONE PER CERCARE L'ULTIMO FILE FANTALAB
+// FUNZIONE PER CERCARE L'ULTIMO FILE FANTALAB LOCALE
 function trovaUltimoFileFantaLab() {
     $searchDirs = [
         __DIR__,
@@ -659,7 +675,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'auto_update_fantalab') {
     if (!$fileTarget || !file_exists($fileTarget)) {
         echo json_encode([
             'success' => false, 
-            'message' => 'Nessun file Excel di FantaLab trovato! Scarica il file in Downloads o inseriscilo nella cartella di progetto.'
+            'message' => 'Nessun file Excel di FantaLab trovato! Usa il pulsante "Carica JSON/Excel" per importare il tuo file .xlsx o .json.'
         ]);
         exit;
     }
@@ -685,7 +701,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'auto_update_fantalab') {
     exit;
 }
 
-// UPLOAD AJAX MULTI-LEGA
+// UPLOAD AJAX MULTI-LEGA (EXCEL O JSON)
 if (isset($_GET['action']) && $_GET['action'] === 'upload_file') {
     header('Content-Type: application/json; charset=utf-8');
 
@@ -701,9 +717,9 @@ if (isset($_GET['action']) && $_GET['action'] === 'upload_file') {
         $decoded = json_decode(file_get_contents($file['tmp_name']), true);
         if ($decoded) {
             saveJsonBinData($decoded);
-            echo json_encode(['success' => true, 'message' => 'Database JSON ripristinato!']);
+            echo json_encode(['success' => true, 'message' => 'Database JSON ripristinato con successo!']);
         } else {
-            echo json_encode(['success' => false, 'message' => 'JSON non valido.']);
+            echo json_encode(['success' => false, 'message' => 'File JSON non valido.']);
         }
         exit;
     } elseif (in_array($ext, ['xlsx', 'xls'])) {
@@ -714,7 +730,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'upload_file') {
         }
 
         if (empty($nuovi)) {
-            echo json_encode(['success' => false, 'message' => 'Nessun calciatore estratto dal file. Verifica la presenza della colonna Nome.']);
+            echo json_encode(['success' => false, 'message' => 'Nessun calciatore estratto dal file. Verifica la presenza delle intestazioni corrette.']);
             exit;
         }
         
@@ -1242,7 +1258,7 @@ $roleBadges = ['P' => 'bg-warning text-dark', 'D' => 'bg-primary', 'C' => 'bg-in
                         <tbody>
                             <?php if (empty($players)): ?>
                                 <tr>
-                                    <td colspan="11" class="text-center text-muted py-5">Nessun giocatore salvato. Carica il file Excel o clicca "Sincronizza FantaLab" per popolare la dashboard!</td>
+                                    <td colspan="11" class="text-center text-muted py-5">Nessun giocatore salvato. Carica il file Excel/JSON o usa i controlli in alto per popolare il database!</td>
                                 </tr>
                             <?php else: ?>
                                 <?php foreach ($players as $p): 
