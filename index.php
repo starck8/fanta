@@ -3,49 +3,69 @@
 // FANTASTRATEGY EXCEL SUPREME EDITION ⚡ - AUCTION LIVE ENGINE 2026/2027
 // ==============================================================================
 
-// Gestione percorso dinamico: rileva se siamo su Windows (XAMPP) o Linux (Render)
-if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
-    $tmpDir = sys_get_temp_dir();
-    $dataFile = $tmpDir . DIRECTORY_SEPARATOR . 'fantacalcio_supreme_db.json';
-} else {
-    $dataFile = '/tmp/fantacalcio_supreme_db.json';
+// CONFIGURAZIONE JSONBIN.IO PER PERSISTENZA CLOUD SU RENDER
+define('JSONBIN_KEY', '$2a$10$8MH7qeOlOzOGygnGefWnW.HIQrCN0ZrYF2.ZqsermJBSEU4o/GZl2'); 
+define('JSONBIN_BIN_ID', '6a84fe38da38895dfef50bc0');
+
+// Funzioni cURL per interagire con JSONBin.io
+function getJsonBinData() {
+    $ch = curl_init('https://api.jsonbin.io/v3/b/' . JSONBIN_BIN_ID . '/latest');
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false); // <--- AGGIUNGI QUESTA RIGA PER LOCALHOST
+    curl_setopt($ch, CURLOPT_HTTPHEADER, [
+        'X-Master-Key: ' . JSONBIN_KEY
+    ]);
+    $response = curl_exec($ch);
+    curl_close($ch);
+    
+    $decoded = json_decode($response, true);
+    return $decoded['record'] ?? null;
 }
 
-$defaultFile = __DIR__ . '/fantacalcio_supreme_db.json';
-
-// Se il file temporaneo non esiste ancora, prova a copiarlo o a crearlo
-if (!file_exists($dataFile)) {
-    if (file_exists($defaultFile)) {
-        copy($defaultFile, $dataFile);
-    } else {
-        $initialData = [
-            'lega1' => [
-                'nome' => 'Lega 1', 
-                'budget_iniziale' => 500, 
-                'budget_ruoli' => ['P' => 40, 'D' => 80, 'C' => 150, 'A' => 230],
-                'giocatori' => [], 
-                'coppie' => []
-            ]
-        ];
-        file_put_contents($dataFile, json_encode($initialData, JSON_PRETTY_PRINT));
-    }
+function saveJsonBinData($data) {
+    $ch = curl_init('https://api.jsonbin.io/v3/b/' . JSONBIN_BIN_ID);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'PUT');
+    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false); // <--- AGGIUNGI QUESTA RIGA PER LOCALHOST
+    curl_setopt($ch, CURLOPT_HTTPHEADER, [
+        'Content-Type: application/json',
+        'X-Master-Key: ' . JSONBIN_KEY
+    ]);
+    $response = curl_exec($ch);
+    curl_close($ch);
+    return $response;
 }
 
-// Lettura e verifica dati
-$fileContent = file_exists($dataFile) ? file_get_contents($dataFile) : '';
-$data = json_decode($fileContent, true);
+// Inizializzazione struttura predefinita multi-lega
+$defaultLegaStructure = [
+    'lega1' => [
+        'nome' => 'Lega 1', 
+        'budget_iniziale' => 500, 
+        'budget_ruoli' => ['P' => 40, 'D' => 80, 'C' => 150, 'A' => 230],
+        'giocatori' => [], 
+        'coppie' => []
+    ],
+    'lega2' => [
+        'nome' => 'Lega 2', 
+        'budget_iniziale' => 500, 
+        'budget_ruoli' => ['P' => 40, 'D' => 80, 'C' => 150, 'A' => 230],
+        'giocatori' => [], 
+        'coppie' => []
+    ]
+];
 
-if (!is_array($data)) {
-    $data = [
-        'lega1' => [
-            'nome' => 'Lega 1', 
-            'budget_iniziale' => 500, 
-            'budget_ruoli' => ['P' => 40, 'D' => 80, 'C' => 150, 'A' => 230],
-            'giocatori' => [], 
-            'coppie' => []
-        ]
-    ];
+// Lettura dati dal Cloud JSONBin
+$data = getJsonBinData();
+
+if (!is_array($data) || empty($data)) {
+    $data = $defaultLegaStructure;
+    saveJsonBinData($data);
 }
+
+// Assicura l'esistenza delle due leghe predefinite se mancanti
+if (!isset($data['lega1'])) { $data['lega1'] = $defaultLegaStructure['lega1']; }
+if (!isset($data['lega2'])) { $data['lega2'] = $defaultLegaStructure['lega2']; }
 
 $currentLega = $_GET['lega'] ?? 'lega1';
 if (!array_key_exists($currentLega, $data)) { $currentLega = 'lega1'; }
@@ -55,7 +75,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_backup') {
     $type = $_GET['type'] ?? 'json';
     if ($type === 'csv') {
         header('Content-Type: text/csv; charset=utf-8');
-        header('Content-Disposition: attachment; filename=fantastrategy_export_' . date('Ymd_His') . '.csv');
+        header('Content-Disposition: attachment; filename=fantastrategy_export_' . $currentLega . '_' . date('Ymd_His') . '.csv');
         $output = fopen('php://output', 'w');
         fputcsv($output, ['Nome', 'Ruolo', 'Squadra', 'Fascia', 'Stato', 'Prezzo Acquisto', 'Budget Max', 'FMV', 'Note']);
         foreach ($data[$currentLega]['giocatori'] as $p) {
@@ -574,7 +594,6 @@ function trovaUltimoFileFantaLab() {
         sys_get_temp_dir()
     ];
 
-    // Se siamo in ambiente locale Windows proviamo anche la cartella Downloads dell'utente
     if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
         $userProfile = getenv('USERPROFILE');
         if ($userProfile) {
@@ -602,7 +621,7 @@ function trovaUltimoFileFantaLab() {
     return $latestFile;
 }
 
-// AZIONE AJAX / GET PER AGGIORNAMENTO AUTOMATICO DA FANTALAB
+// AZIONE AJAX / GET PER AGGIORNAMENTO AUTOMATICO DA FANTALAB (MULTI-LEGA)
 if (isset($_GET['action']) && $_GET['action'] === 'auto_update_fantalab') {
     header('Content-Type: application/json; charset=utf-8');
 
@@ -622,21 +641,23 @@ if (isset($_GET['action']) && $_GET['action'] === 'auto_update_fantalab') {
         exit;
     }
 
-    $attuali = $data[$currentLega]['giocatori'] ?? [];
-    $merged = mergePlayersData($attuali, $nuovi);
-
-    $data[$currentLega]['giocatori'] = $merged;
-    file_put_contents($dataFile, json_encode($data, JSON_PRETTY_PRINT));
+    // Aggiorna simultaneamente il listone di tutte le leghe salvaguardando le rispettive aste
+    foreach (array_keys($data) as $lKey) {
+        $attualiLega = $data[$lKey]['giocatori'] ?? [];
+        $data[$lKey]['giocatori'] = mergePlayersData($attualiLega, $nuovi);
+    }
+    
+    saveJsonBinData($data);
 
     $nomeFile = basename($fileTarget);
     echo json_encode([
         'success' => true, 
-        'message' => "Database aggiornato con successo da: $nomeFile (" . count($merged) . " calciatori sincati! Stato asta preservato)."
+        'message' => "Database aggiornato su TUTTE le leghe con successo da: $nomeFile (" . count($nuovi) . " calciatori sincati! Stato asta preservato)."
     ]);
     exit;
 }
 
-// UPLOAD AJAX
+// UPLOAD AJAX (MULTI-LEGA)
 if (isset($_GET['action']) && $_GET['action'] === 'upload_file') {
     header('Content-Type: application/json; charset=utf-8');
 
@@ -651,7 +672,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'upload_file') {
     if ($ext === 'json') {
         $decoded = json_decode(file_get_contents($file['tmp_name']), true);
         if ($decoded) {
-            file_put_contents($dataFile, json_encode($decoded, JSON_PRETTY_PRINT));
+            saveJsonBinData($decoded);
             echo json_encode(['success' => true, 'message' => 'Database JSON ripristinato!']);
         } else {
             echo json_encode(['success' => false, 'message' => 'JSON non valido.']);
@@ -663,11 +684,15 @@ if (isset($_GET['action']) && $_GET['action'] === 'upload_file') {
             echo json_encode(['success' => false, 'message' => $nuovi['message']]);
             exit;
         }
-        $attuali = $data[$currentLega]['giocatori'] ?? [];
-        $merged = mergePlayersData($attuali, $nuovi);
-        $data[$currentLega]['giocatori'] = $merged;
-        file_put_contents($dataFile, json_encode($data, JSON_PRETTY_PRINT));
-        echo json_encode(['success' => true, 'message' => 'Importati ' . count($merged) . ' calciatori!']);
+        
+        // Aggiorna simultaneamente il listone di tutte le leghe salvaguardando le rispettive aste
+        foreach (array_keys($data) as $lKey) {
+            $attualiLega = $data[$lKey]['giocatori'] ?? [];
+            $data[$lKey]['giocatori'] = mergePlayersData($attualiLega, $nuovi);
+        }
+        
+        saveJsonBinData($data);
+        echo json_encode(['success' => true, 'message' => 'Importati e sincronizzati ' . count($nuovi) . ' calciatori in tutte le leghe!']);
         exit;
     }
 }
@@ -680,14 +705,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         foreach ($data[$currentLega]['giocatori'] as &$p) {
             if ($p['id'] === $_POST['player_id']) { $p['preferito'] = !($p['preferito'] ?? false); break; }
         }
-        file_put_contents($dataFile, json_encode($data, JSON_PRETTY_PRINT));
+        saveJsonBinData($data);
         header("Location: index.php?lega=" . $currentLega);
         exit;
     }
 
     if ($action === 'clear_database') {
         $data[$currentLega]['giocatori'] = [];
-        file_put_contents($dataFile, json_encode($data, JSON_PRETTY_PRINT));
+        saveJsonBinData($data);
         header("Location: index.php?lega=" . $currentLega);
         exit;
     }
@@ -695,7 +720,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($action === 'update_budget') {
         $data[$currentLega]['budget_iniziale'] = max(1, (int)$_POST['budget_iniziale']);
         $data[$currentLega]['budget_ruoli'] = ['P' => (int)($_POST['b_p'] ?? 0), 'D' => (int)($_POST['b_d'] ?? 0), 'C' => (int)($_POST['b_c'] ?? 0), 'A' => (int)($_POST['b_a'] ?? 0)];
-        file_put_contents($dataFile, json_encode($data, JSON_PRETTY_PRINT));
+        saveJsonBinData($data);
         header("Location: index.php?lega=" . $currentLega);
         exit;
     }
@@ -708,14 +733,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 break;
             }
         }
-        file_put_contents($dataFile, json_encode($data, JSON_PRETTY_PRINT));
+        saveJsonBinData($data);
         header("Location: index.php?lega=" . $currentLega);
         exit;
     }
 
     if ($action === 'delete') {
         $data[$currentLega]['giocatori'] = array_values(array_filter($data[$currentLega]['giocatori'], fn($p) => $p['id'] !== $_POST['player_id']));
-        file_put_contents($dataFile, json_encode($data, JSON_PRETTY_PRINT));
+        saveJsonBinData($data);
         header("Location: index.php?lega=" . $currentLega);
         exit;
     }
@@ -763,7 +788,7 @@ $isZonaRossaBudget = ($budgetResiduo <= $totaleSlotMancanti && $totaleSlotMancan
 // GESTIONE SMART RE-PAIRING / ALLERTE COPPIE
 $aiAdviceList = [];
 if (array_sum($slotPresi) === 0) {
-    $aiAdviceList[] = ["type" => "info", "msg" => "Asta appena iniziata! Mantieni la calma e focalizzati sui top target."];
+    $aiAdviceList[] = ["type" => "info", "msg" => "Asta appena iniziata per <strong>" . htmlspecialchars($data[$currentLega]['nome']) . "</strong>! Mantieni la calma e focalizzati sui top target."];
 }
 
 if ($isZonaRossaBudget) {
@@ -808,7 +833,7 @@ $roleBadges = ['P' => 'bg-warning text-dark', 'D' => 'bg-primary', 'C' => 'bg-in
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FantaStrategy LIVE ENGINE ⚡</title>
+    <title>FantaStrategy LIVE ENGINE ⚡ - <?php echo htmlspecialchars($data[$currentLega]['nome']); ?></title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <style>
@@ -877,11 +902,25 @@ $roleBadges = ['P' => 'bg-warning text-dark', 'D' => 'bg-primary', 'C' => 'bg-in
     <a href="index.php?lega=<?php echo $currentLega; ?>&action=export_backup&type=json" class="btn btn-xs btn-warning text-dark fw-bold ms-2 px-2 py-0" onclick="resetBackupTimer()"><i class="fa-solid fa-download me-1"></i> Salva Ora</a>
 </div>
 
-<!-- NAVBAR CON PULSANTI EXPORT BACKUP, UNDO E MODALITÀ ASTA VELOCE -->
+<!-- NAVBAR CON PULSANTI EXPORT BACKUP, UNDO E SELETTORE MULTI-LEGA -->
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark border-bottom border-secondary sticky-top shadow">
     <div class="container-fluid px-4">
         <a class="navbar-brand fw-bold text-warning fs-4" href="#"><i class="fa-solid fa-crown me-2"></i>FantaStrategy LIVE ENGINE</a>
+        
         <div class="d-flex align-items-center gap-2 flex-wrap">
+            <!-- SELETTORE LEGA DINAMICO -->
+            <div class="dropdown">
+                <button class="btn btn-sm btn-outline-warning dropdown-toggle fw-bold text-white" type="button" data-bs-toggle="dropdown">
+                    <i class="fa-solid fa-trophy text-warning me-1"></i> 
+                    <?php echo htmlspecialchars($data[$currentLega]['nome']); ?>
+                </button>
+                <ul class="dropdown-menu dropdown-menu-dark shadow border-secondary">
+                    <li><h6 class="dropdown-header text-warning">Seleziona Fantacalcio</h6></li>
+                    <li><a class="dropdown-item <?php echo $currentLega === 'lega1' ? 'active' : ''; ?>" href="index.php?lega=lega1"><i class="fa-solid fa-trophy me-2"></i>Lega 1</a></li>
+                    <li><a class="dropdown-item <?php echo $currentLega === 'lega2' ? 'active' : ''; ?>" href="index.php?lega=lega2"><i class="fa-solid fa-shield-halved me-2"></i>Lega 2</a></li>
+                </ul>
+            </div>
+
             <span class="badge bg-secondary"><?php echo count($players); ?> Calciatori</span>
             
             <!-- TASTO AGGIORNAMENTO AUTOMATICO FANTALAB -->
@@ -898,7 +937,7 @@ $roleBadges = ['P' => 'bg-warning text-dark', 'D' => 'bg-primary', 'C' => 'bg-in
             <a href="index.php?lega=<?php echo $currentLega; ?>&action=export_backup&type=csv" class="btn btn-sm btn-outline-success fw-bold"><i class="fa-solid fa-file-csv me-1"></i> Esporta CSV</a>
             
             <button class="btn btn-sm btn-outline-warning" data-bs-toggle="modal" data-bs-target="#importModal"><i class="fa-solid fa-file-excel me-1"></i> Carica JSON/Excel</button>
-            <form method="POST" style="display:inline;" onsubmit="return confirm('Sei sicuro di voler svuotare interamente il database dei calciatori?');">
+            <form method="POST" style="display:inline;" onsubmit="return confirm('Sei sicuro di voler svuotare interamente il database dei calciatori per la lega attuale?');">
                 <input type="hidden" name="action" value="clear_database">
                 <button type="submit" class="btn btn-sm btn-outline-danger"><i class="fa-solid fa-trash-can me-1"></i> Svuota DB</button>
             </form>
@@ -949,7 +988,7 @@ $roleBadges = ['P' => 'bg-warning text-dark', 'D' => 'bg-primary', 'C' => 'bg-in
             <div class="card card-custom p-3 ai-card">
                 <div class="d-flex align-items-center mb-2">
                     <i class="fa-solid fa-robot text-info fs-4 me-2"></i>
-                    <h6 class="m-0 text-info fw-bold">Fanta-Advisor AI Live (Consigli in Tempo Reale)</h6>
+                    <h6 class="m-0 text-info fw-bold">Fanta-Advisor AI Live (Consigli in Tempo Reale - <?php echo htmlspecialchars($data[$currentLega]['nome']); ?>)</h6>
                 </div>
                 <ul class="mb-0 ps-3 small">
                     <?php foreach ($aiAdviceList as $advice): ?>
@@ -1432,7 +1471,7 @@ $roleBadges = ['P' => 'bg-warning text-dark', 'D' => 'bg-primary', 'C' => 'bg-in
     <div class="modal-dialog">
         <div class="modal-content card-custom">
             <div class="modal-header border-secondary">
-                <h5 class="modal-title">Imposta Budget Iniziale e Ruoli</h5>
+                <h5 class="modal-title">Imposta Budget Iniziale e Ruoli (<?php echo htmlspecialchars($data[$currentLega]['nome']); ?>)</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <form method="POST">
