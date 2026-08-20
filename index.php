@@ -7,16 +7,7 @@ define('JSONBIN_BIN_ID', '6a84fe38da38895dfef50bc0');
 define('LOCAL_DB_FILE', __DIR__ . '/database.json');
 
 function getJsonBinData() {
-    // 1. Se esiste un database locale con giocatori, priorità assoluta al locale su XAMPP
-    if (file_exists(LOCAL_DB_FILE)) {
-        $localContent = file_get_contents(LOCAL_DB_FILE);
-        $localData = json_decode($localContent, true);
-        if (is_array($localData) && isset($localData['lega1']['giocatori']) && count($localData['lega1']['giocatori']) > 0) {
-            return $localData;
-        }
-    }
-
-    // 2. Altrimenti prova a scaricare da Cloud JSONBin
+    // 1. Scarica SEMPRE la versione più aggiornata dal Cloud JSONBin
     $ch = curl_init('https://api.jsonbin.io/v3/b/' . JSONBIN_BIN_ID . '/latest');
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
@@ -28,13 +19,14 @@ function getJsonBinData() {
     
     if ($httpCode === 200) {
         $decoded = json_decode($response, true);
-        if (isset($decoded['record']) && is_array($decoded['record'])) {
+        if (isset($decoded['record']) && is_array($decoded['record']) && isset($decoded['record']['lega1']['giocatori']) && count($decoded['record']['lega1']['giocatori']) > 0) {
+            // Aggiorna la copia locale solo se dal cloud arrivano i giocatori validi
             file_put_contents(LOCAL_DB_FILE, json_encode($decoded['record'], JSON_PRETTY_PRINT));
             return $decoded['record'];
         }
     }
 
-    // 3. Fallback sul file locale se presente
+    // 2. Fallback sul file locale database.json se JSONBin è irraggiungibile o vuoto
     if (file_exists(LOCAL_DB_FILE)) {
         $localContent = file_get_contents(LOCAL_DB_FILE);
         $localData = json_decode($localContent, true);
@@ -567,7 +559,8 @@ function parseXlsxNative($filePath) {
             $noteLower = strtolower($noteStr);
 
             $allPlayers[] = [
-                'id' => uniqid('p_'),
+                // ID Univoco e permanente basato su Nome e Ruolo (es. p_barella_c)
+                'id' => 'p_' . preg_replace('/[^a-z0-9]/', '', strtolower($nomeVal)) . '_' . strtolower($ruoloVal),
                 'nome' => $nomeVal,
                 'squadra' => $idxTeam !== false ? trim((string)($row[$idxTeam] ?? 'ND')) : 'ND',
                 'ruolo' => $ruoloVal,
